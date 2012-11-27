@@ -75,17 +75,23 @@ while (1) {
 	    debug("Xbee->MessageSend(".$config->{sendTo}.")->Hash(" . hmac_sha256_hex($body, $config->{hmacKey}) . ")\n");
 	    $connection->MessageSend(
 		to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
-    		resource => $config->{resource});
+		resource => $config->{resource});
 
 	    if ($rx->{data} =~ m/C([0-9]*)/i) {
 		my $hash = hmac_sha256_hex($1, $config->{hmacKey});
 		my $body = sprintf("%x:%x (%s)> %s", $rx->{sh}, $rx->{sl}, $ni, "H$hash");
 		$connection->MessageSend(
 		    to => $config->{config}."\@".$config->{componentname}, body => $body,
-    		    resource => $config->{resource});
+		    resource => $config->{resource});
 		if (!$xbee->tx({sh => $rx->{sh}, sl => $rx->{sl}}, "H$hash")) {
 		    print "XBee->Transmit() failed!\n";
 		}
+	    } elsif ($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) {
+		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
+		debug("XBee->RFID($1)\n");
+		$connection->MessageSend(
+		    to => $config->{config}."\@".$config->{componentname}, body => $body,
+		    resource => $config->{resource});
 	    }
 	}
     }
