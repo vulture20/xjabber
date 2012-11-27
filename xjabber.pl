@@ -27,7 +27,7 @@ $serial_port_device->parity($config->{xbeeparity});
 $serial_port_device->read_char_time(0);
 $serial_port_device->read_const_time(1000);
 
-my $xbee = Device::XBee::API->new({fh => $serial_port_device}, api_mode_escape => 1) || die $!;
+my $xbee = Device::XBee::API->new({fh => $serial_port_device, packet_timeout => 3, api_mode_escape => 2}) || die $!;
 debug("XBee->Discover()...\n");
 $xbee->discover_network();
 
@@ -161,6 +161,9 @@ sub InMessage {
 	    }
 	} else {
 	    debug("XBee->Send() Node not found!\n");
+	    $connection->MessageSend(
+		to => "$from\@$server", body => "XBee->Send() Node not found!",
+		resource => $resource);
 	}
     # send 13a200_406fffff message
     # Sende an 64bit-Adresse
