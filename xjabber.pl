@@ -72,9 +72,8 @@ while (1) {
     if ($oldtime < time) {
 	$oldtime = time + $config->{interval};
 	debug("Main->Interval()\n");
-	$connection->MessageSend(
-	    to => $config->{sendTo}."\@".$config->{componentname}, body => "DRefresh",
-	    resource => $config->{resource});
+	sendGTasks();
+	sendTS3User();
     }
     # Process incoming XBee-Messages
     if (my $rx = $xbee->rx()) {
@@ -94,7 +93,7 @@ while (1) {
 		my $hash = hmac_sha256_hex($1, $config->{hmacKey});
 		my $body = sprintf("%x:%x (%s)> %s", $rx->{sh}, $rx->{sl}, $ni, "H$hash");
 		$connection->MessageSend(
-		    to => $config->{config}."\@".$config->{componentname}, body => $body,
+		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		    resource => $config->{resource});
 		if (!$xbee->tx({sh => $rx->{sh}, sl => $rx->{sl}}, "H$hash")) {
 		    print "XBee->Transmit() failed!\n";
@@ -205,7 +204,7 @@ sub InMessage {
 	my $found = 0;
 	my $sh = 0; my $sl = 0;
 	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	    if (lc($v->{ni}) eq "door") {
+	    if (lc($v->{ni}) eq $config->{xbeedoor}) {
 		$sh = $v->{sh};
 		$sl = $v->{sl};
 		$found = 1;
@@ -240,4 +239,85 @@ sub InMessage {
 sub debug {
     if ($config->{debug}) { print shift; }
     return;
+}
+
+sub sendGTasks {
+    open FILE, "<" . $config->{filegtasks};
+    my @lines = <FILE>;
+    close(FILE);
+    chomp(@lines);
+
+    my $found = 0;
+    my $sh = 0; my $sl = 0;
+    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+	if (lc($v->{ni}) eq $config->{xbeedisplay}) {
+	    $sh = $v->{sh};
+	    $sl = $v->{sl};
+	    $found = 1;
+	}
+    }
+    if ($found == 1) {
+	my $i = 0;
+	foreach (@lines) {
+	    if (!$xbee->tx({sh => $sh, sl => $sl}, "G$i$_")) {
+		print "XBee->Transmit() failed!\n";
+	    }
+	    debug("XBee()->Display(G$i$_)\n");
+	    $i++;
+	}
+    } else {
+	debug("XBee->Send() Node not found!\n");
+    }
+}
+
+sub sendTS3User {
+    open FILE, "<" . $config->{filets3user};
+    my @lines = <FILE>;
+    close(FILE);
+    chomp(@lines);
+
+    my $found = 0;
+    my $sh = 0; my $sl = 0;
+    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+	if (lc($v->{ni}) eq $config->{xbeedisplay}) {
+	    $sh = $v->{sh};
+	    $sl = $v->{sl};
+	    $found = 1;
+	}
+    }
+    if ($found == 1) {
+	my $i = 0;
+	foreach (@lines) {
+	    if (!$xbee->tx({sh => $sh, sl => $sl}, "T$i$_")) {
+		print "XBee->Transmit() failed!\n";
+	    }
+	    debug("XBee()->Display(T$i$_)\n");
+	    $i++;
+	}
+    } else {
+	debug("XBee->Send() Node not found!\n");
+    }
+}
+
+sub resolveName {
+    my $name = shift;
+    my $sh = 0; my $sl = 0;
+    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+	if (lc($v->{ni}) eq $config->{$name}) {
+	    $sh = $v->{sh};
+	    $sl = $v->{sl};
+	    return $v;
+	}
+    }
+    return undef;
+}
+
+sub resolveID {
+    my ($sh, $sl) = @_;
+    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+	if (($sh eq $v->{sh}) && ($sl eq $v->{sl})) {
+	    return $v->{ni};
+	}
+    }
+    return undef;
 }
