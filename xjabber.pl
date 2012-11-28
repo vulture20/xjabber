@@ -72,8 +72,8 @@ while (1) {
     if ($oldtime < time) {
 	$oldtime = time + $config->{interval};
 	debug("Main->Interval()\n");
-	sendGTasks();
-	sendTS3User();
+	sendGTasks($config->{xbeedisplay});
+	sendTS3User($config->{xbeedisplay});
     }
     # Process incoming XBee-Messages
     if (my $rx = $xbee->rx()) {
@@ -89,7 +89,7 @@ while (1) {
 		to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		resource => $config->{resource});
 
-	    if ($rx->{data} =~ m/C([0-9]*)/i) {
+	    if (($rx->{data} =~ m/C([0-9]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		my $hash = hmac_sha256_hex($1, $config->{hmacKey});
 		my $body = sprintf("%x:%x (%s)> %s", $rx->{sh}, $rx->{sl}, $ni, "H$hash");
 		$connection->MessageSend(
@@ -98,7 +98,7 @@ while (1) {
 		if (!$xbee->tx({sh => $rx->{sh}, sl => $rx->{sl}}, "H$hash")) {
 		    print "XBee->Transmit() failed!\n";
 		}
-	    } elsif ($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) {
+	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
 		debug("XBee->RFID($1)\n");
 		$connection->MessageSend(
@@ -111,12 +111,18 @@ while (1) {
 
 exit(0);
 
+# Deconstructor - Clean everything up before exiting
+# Parameter: none
+# Returns: nothing
 sub Stop {
     debug("Main->Exit()\n");
     $connection->Disconnect();
     exit(0);
 }
 
+# A Jabber-Message was received and should be handled
+# Parameter: sid, message
+# Returns: nothing
 sub InMessage {
     my $sid = shift;
     my $message = shift;
@@ -236,12 +242,20 @@ sub InMessage {
     }
 }
 
+# Prints the given message if debugging is enabled
+# Parameter: the messagestring
+# Returns: nothing
 sub debug {
     if ($config->{debug}) { print shift; }
     return;
 }
 
+# Reads the GTasks-File and sends its content to the display-node
+# Parameter: name of the destination-node
+# Returns: nothing
 sub sendGTasks {
+    my $node = shift;
+
     open FILE, "<" . $config->{filegtasks};
     my @lines = <FILE>;
     close(FILE);
@@ -250,7 +264,7 @@ sub sendGTasks {
     my $found = 0;
     my $sh = 0; my $sl = 0;
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	if (lc($v->{ni}) eq $config->{xbeedisplay}) {
+	if (lc($v->{ni}) eq $node) {
 	    $sh = $v->{sh};
 	    $sl = $v->{sl};
 	    $found = 1;
@@ -270,7 +284,12 @@ sub sendGTasks {
     }
 }
 
+# Reads the TS3User-File and sends the content to the display-node
+# Parameter: name of the destination-node
+# Returns: nothing
 sub sendTS3User {
+    my $node = shift;
+
     open FILE, "<" . $config->{filets3user};
     my @lines = <FILE>;
     close(FILE);
@@ -279,7 +298,7 @@ sub sendTS3User {
     my $found = 0;
     my $sh = 0; my $sl = 0;
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	if (lc($v->{ni}) eq $config->{xbeedisplay}) {
+	if (lc($v->{ni}) eq $node) {
 	    $sh = $v->{sh};
 	    $sl = $v->{sl};
 	    $found = 1;
@@ -299,6 +318,9 @@ sub sendTS3User {
     }
 }
 
+# Resolves the XBee-Deviceaddress from its name
+# Parameter: Devicename
+# Returns: Deviceobject or undef
 sub resolveName {
     my $name = shift;
     my $sh = 0; my $sl = 0;
@@ -312,6 +334,9 @@ sub resolveName {
     return undef;
 }
 
+# Resolves the XBee-Devicename from its address
+# Parameter: sh, sl
+# Returns: Devicename or undef
 sub resolveID {
     my ($sh, $sl) = @_;
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
