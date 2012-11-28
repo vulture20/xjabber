@@ -7,6 +7,7 @@ use Net::Jabber;
 use Device::SerialPort;
 use Device::XBee::API;
 use Digest::SHA qw(hmac_sha256_hex);
+use Time::HiRes qw(setitimer ITIMER_VIRTUAL time);
 
 #############################################################
 
@@ -18,6 +19,8 @@ $SIG{HUP} = \&Stop;
 $SIG{KILL} = \&Stop;
 $SIG{TERM} = \&Stop;
 $SIG{INT} = \&Stop;
+
+my $oldtime = 0;
 
 my $serial_port_device = Device::SerialPort->new($config->{xbeedev}) || die $!;
 $serial_port_device->baudrate($config->{xbeebaud});
@@ -60,10 +63,20 @@ debug("XBee->PresenceSend()...\n");
 $connection->PresenceSend();
 
 while (1) {
+    # Process incoming Jabber-Messages
     if (!defined($connection->Process(1))) {
 	debug("XBee->Disconnected()\n");
 	exit(254);
     }
+    # Interval-Timer
+    if ($oldtime < time) {
+	$oldtime = time + $config->{interval};
+	debug("Main->Interval()\n");
+	$connection->MessageSend(
+	    to => $config->{sendTo}."\@".$config->{componentname}, body => "DRefresh",
+	    resource => $config->{resource});
+    }
+    # Process incoming XBee-Messages
     if (my $rx = $xbee->rx()) {
 	if (($rx->{api_type} eq Device::XBee::API->XBEE_API_TYPE__ZIGBEE_RECEIVE_PACKET)) {
 	
@@ -204,6 +217,9 @@ sub InMessage {
 	    }
 	} else {
 	    debug("XBee->Send() Node not found!\n");
+	    $connection->MessageSend(
+		to => "$from\@$server", body => "XBee->Send() Node not found!",
+		resource => $resource);
 	}
     # Kein Befehl - ignorieren bzw. debuggen
     } else {
