@@ -96,13 +96,13 @@ while (1) {
 		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		    resource => $config->{resource});
 		if (!$xbee->tx({sh => $rx->{sh}, sl => $rx->{sl}}, "H$hash")) {
-		    print "XBee->Transmit() failed!\n";
+		    print "XBee->Transmit(H...) failed!\n";
 		}
 	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
 		debug("XBee->RFID($1)\n");
 		$connection->MessageSend(
-		    to => $config->{config}."\@".$config->{componentname}, body => $body,
+		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		    resource => $config->{resource});
 	    }
 	}
@@ -218,7 +218,7 @@ sub InMessage {
 	}
 	if ($found == 1) {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "R$1")) {
-		print "XBee->Transmit() failed!\n";
+		print "XBee->Transmit(R...) ($sh, $sl, $1) failed!\n";
 	    }
 	} else {
 	    debug("XBee->Send() Node not found!\n");
