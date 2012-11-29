@@ -1,80 +1,119 @@
 #include "sha256.h"
 #include "XBee.h"
 
-int flatdoor = 2;
-int housedoor = 3;
+// Pin-Definitions
+int flatdoor     = 2;
+int housedoor    = 3;
+int rfid_restart = 9;
+int rfid_found   = 10;
+int rfid_sck     = 11;
+int rfid_sdt     = 12;
 
 unsigned long lastsecret;
+uint8_t* expectedHmac;
+uint8_t payload[65];
+char hmacString[65], responseString[65], rfidTag[5] = {0, 0, 0, 0, 0};
+int door = 0;
+
+// Enter HMAC-Key here and keep it secure!
 uint8_t hmacKey[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
-uint8_t* expectedHmac;
-char hmacString[65], responseString[65];
-uint8_t payload[65];
-int door = 0;
 
+// Initialize the XBee-Library
 XBee xbee = XBee();
-XBeeAddress64 addr64 = XBeeAddress64(0x00, 0x00);
+XBeeAddress64 addr64 = XBeeAddress64(0x00, 0x00); // always send to the coordinator (sh=0 & sl=0)
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 XBeeResponse response = XBeeResponse();
 ZBRxResponse rx = ZBRxResponse();
 ModemStatusResponse msr = ModemStatusResponse();
 
 void setup() {
+  // Setup IO-Pins
   pinMode(flatdoor, OUTPUT);
   pinMode(housedoor, OUTPUT);
+  pinMode(rfid_restart, OUTPUT);
+  pinMode(rfid_found, INPUT_PULLUP);
+  pinMode(rfid_sck, OUTPUT);
+  pinMode(rfid_sdt, INPUT_PULLUP);
+  
+  // My Relais are low-active
   digitalWrite(flatdoor, HIGH);
   digitalWrite(housedoor, HIGH);
+  
+  // Initialize the RFID-Reader
+  digitalWrite(rfid_sck, LOW);
+  digitalWrite(rfid_restart, HIGH);
+  delay(5);
+  digitalWrite(rfid_restart, LOW);
+
+  // Setup the Serial- and XBee-Interface
   Serial.begin(9600);
   xbee.setSerial(Serial);
+  
+  // Try to get some more or less real random numbers
+  // more randomness means higher security for hmac hash
   randomSeed(analogRead(0));
 
-  uint8_t version[] = "LDoor v0.9";
+  // Send a short version-string which will be ignored by the server
+  uint8_t version[] = "#LDoor v0.9";
   ZBTxRequest zbTx = ZBTxRequest(addr64, version, 10);
   xbee.send(zbTx);
 }
 
 void loop() {
-  xbee.readPacket();
-  if (xbee.getResponse().isAvailable()) {
-    if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) {
+  // RFID-Tag has been found and will be read
+  if (foundRFID()) {
+    flashLed(1, 200); // Blink led for 200ms
+    readRFID(); // Read the RFID-Tag
+    payload[0] = byte('R'); // Set the trailing 'R'
+    for (int i=0; i<5; i++) { // Convert the array of chars to a hex string
+      payload[(i*2)+1] = "0123456789abcdef"[rfidTag[i]>>4];
+      payload[(i*2)+2] = "0123456789abcdef"[rfidTag[i]&0x0f];
+    }
+    ZBTxRequest zbTx = ZBTxRequest(addr64, payload, 6); // Static size of 6 byte
+    xbee.send(zbTx); // Send it
+  }
+  xbee.readPacket(); // Try to read a XBee-Packet
+  if (xbee.getResponse().isAvailable()) { // is a XBee-Packet available?
+    if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // Was it a response to a previously send packet?
       xbee.getResponse().getZBRxResponse(rx);
-      
-      if (rx.getOption() == ZB_PACKET_ACKNOWLEDGED) {
-        flashLed(1, 500);
+
+      if (rx.getOption() == ZB_PACKET_ACKNOWLEDGED) { // Packet was send succesfully
+        flashLed(1, 500); // Flash for 500ms
       } else {
-        flashLed(5, 50);
+        flashLed(5, 50); // Error: Flash 5 times for 50ms
       }
 
-      char incomingByte = rx.getData()[0];
-      if (incomingByte == 'R') {
+      char incomingByte = rx.getData()[0]; // Get the first byte => Opcode
+      if (incomingByte == 'R') { // Opcode R = Request the random number
         char secretstring[11] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
         byte secretlength = 0;
-        door = rx.getData()[1]-48;
-        lastsecret = random(2147483646);
-        payload[0] = 67; // 'C'
-        sprintf(secretstring, "%lu", lastsecret);
-        for (int i=0; i<sizeof(secretstring); i++) {
+        door = rx.getData()[1]-48; // Which door should be opened? - store it for later
+        lastsecret = random(2147483646); // Get a new random number (long int)
+        payload[0] = byte('C'); // Set the trailing 'C'
+        sprintf(secretstring, "%lu", lastsecret); // Convert number to string
+        for (int i=0; i<sizeof(secretstring); i++) { // Copy the string into the payload array
           secretlength = i;
-          if (secretstring[i] == 0x00) break;
+          if (secretstring[i] == 0x00) break; // 0-terminated - we're done
           payload[i+1] = secretstring[i];
         }
         ZBTxRequest zbTx = ZBTxRequest(addr64, payload, secretlength+1);
-        xbee.send(zbTx);
-        Sha256.initHmac(hmacKey, 32);
-        Sha256.print(lastsecret);
-        expectedHmac = Sha256.resultHmac();
-        hmacToString(expectedHmac, hmacString);
-      } else if (incomingByte == 'H') {
-        for (int i=0; i<rx.getDataLength(); i++) {
+        xbee.send(zbTx); // Send it
+        Sha256.initHmac(hmacKey, 32); // Initialize the HMAC-Library with the key
+        Sha256.print(lastsecret); // Generate the hash of the random number
+        expectedHmac = Sha256.resultHmac(); // Get the hash
+        hmacToString(expectedHmac, hmacString); // Convert it to a string and store it for later
+      } else if (incomingByte == 'H') { // Opcode H = Got a hash, check it and execute the command
+        for (int i=0; i<rx.getDataLength(); i++) { // Get the data from the RFID-Packet
           responseString[i] = rx.getData()[i+1];
         }
-        responseString[64] = 0x00;
-        if (compareStrings(hmacString, responseString)) {
-          switch (door) {
+        responseString[64] = 0x00; // Add a 0-byte for termination
+        if (compareStrings(hmacString, responseString)) { // Is the hash the expected?
+          switch (door) { // Open the corresponding door
             case 1:
               digitalWrite(flatdoor, LOW);
               delay(500);
@@ -94,13 +133,14 @@ void loop() {
               break;
           }
         } else {
-          flashLed(3, 200);
+          flashLed(3, 200); // Flash 3 times for 200ms
         }
       }
     }
   }
 }
 
+// Converts a hmac hash byte-array to a string (array of chars)
 void hmacToString(uint8_t* hash, char hmac[65]) {
   for (int i=0; i<32; i++) {
     hmac[i*2] = "0123456789abcdef"[hash[i]>>4];
@@ -109,6 +149,8 @@ void hmacToString(uint8_t* hash, char hmac[65]) {
   hmac[64] = 0x00;
 }
 
+// Compares two 65 byte-strings
+// Returns true if both are the same
 boolean compareStrings(char string1[65], char string2[65]) {
   for (int i=0; i<64; i++) {
     if (string1[i] != string2[i]) {
@@ -118,6 +160,7 @@ boolean compareStrings(char string1[65], char string2[65]) {
   return true;
 }
 
+// Flash the led at pin 13
 void flashLed(int times, int wait) {
   for (int i=0; i<times; i++) {
     digitalWrite(13, HIGH);
@@ -129,8 +172,34 @@ void flashLed(int times, int wait) {
   }
 }
 
+// Sends a packet via XBee to the coordinator
 void sendPacket(uint8_t dataPayload[], byte sizeofPayload) {
   ZBTxRequest zbTx = ZBTxRequest(addr64, dataPayload, sizeofPayload);
   xbee.send(zbTx);
 }
 
+// RFID-Tag has been detected
+boolean foundRFID() {
+  return (digitalRead(rfid_found) == HIGH);
+}
+
+// Reset the RFID-Reader
+void restartRFID() {
+  digitalWrite(rfid_restart, HIGH);
+  delay(5);
+  digitalWrite(rfid_restart, LOW);
+}
+
+// Reads an RFID-Tag and stores the id in rfidTag
+void readRFID() {
+  for (int j=0; j<5; j++) {
+    for (int i=0; i<8; i++) {
+      byte dataBit = digitalRead(rfid_sdt); // First bit is available before first CLK-toggle!
+      rfidTag[j] = rfidTag[j] << 1;
+      rfidTag[j] += dataBit;
+      digitalWrite(rfid_sck, HIGH);
+      delay(10); // Maybe we can read faster - needs to be tested
+      digitalWrite(rfid_sck, LOW);
+    }
+  }
+}
