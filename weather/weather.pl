@@ -152,8 +152,10 @@ if ($retcode == 0) {
 	    $astronomy->{sunset} = $2;
 	}
     }
-    print $condition->{condstr} . " bei " . $condition->{temp} . "°C\n";
-    print "Vorhersage: " . $forecast[0]{condstr} . " bei $forecast[0]{low}-$forecast[0]{high}°C\n";
-} else {
-    print "weather.pl: An error happened: $retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n";
+    printf("%s|%s|%i\n", $location->{city}, $condition->{condstr}, $condition->{temp});
+    printf("%s|%s|%i|%i\n", $forecast[0]{day}, $forecast[0]{condstr}, $forecast[0]{low}, $forecast[0]{high});
+    printf("%s|%s|%i|%i\n", $forecast[1]{day}, $forecast[1]{condstr}, $forecast[1]{low}, $forecast[1]{high});
+    printf("%i|%s|%i\n", $atmosphere->{humidity}, $atmosphere->{pressure}, $atmosphere->{rising});
+#} else {
+#    print "weather.pl: An error happened: $retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n";
 }
