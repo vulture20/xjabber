@@ -1,4 +1,26 @@
 #!/usr/bin/perl -w
+# xjabber.pl - Mainscript of the XJabber-Server
+# Copyright (C)2012-2013 Thorsten Schroepel. All right reserved
+#
+# If you make any modifications or improvements to the code, I would
+# appreciate that you share the code with me so that I might include
+# it in the next release. I can be contacted through
+# http://www.schroepel.net/.
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#############################################################
 
 use strict;
 use YAML;
@@ -31,6 +53,7 @@ $serial_port_device->read_char_time(0);
 $serial_port_device->read_const_time(1000);
 
 my $xbee = Device::XBee::API->new({fh => $serial_port_device, packet_timeout => 3, api_mode_escape => 2}) || die $!;
+#my $xbee = Device::XBee::API->new({fh => $serial_port_device, api_mode_escape => 2}) || die $!;
 debug("XBee->Discover()...\n");
 $xbee->discover_network();
 
@@ -72,7 +95,7 @@ while (1) {
     if ($oldtime < time) {
 	$oldtime = time + $config->{interval};
 	debug("Main->Interval()\n");
-	sendGTasks($config->{xbeedisplay});
+#	sendGTasks($config->{xbeedisplay});
 	sendTS3User($config->{xbeedisplay});
     }
     # Process incoming XBee-Messages
@@ -181,7 +204,7 @@ sub InMessage {
 	}
 	if ($found == 1) {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $2)) {
-		print "XBee->Transmit() failed!\n";
+		printf("XBee->Transmit(%x, %x, %s) failed!\n", $sh, $sl, $2);
 	    }
 	} else {
 	    debug("XBee->Send() Node not found!\n");
@@ -218,7 +241,7 @@ sub InMessage {
 	}
 	if ($found == 1) {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "R$1")) {
-		print "XBee->Transmit(R...) ($sh, $sl, $1) failed!\n";
+		printf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $1);
 	    }
 	} else {
 	    debug("XBee->Send() Node not found!\n");
@@ -310,7 +333,7 @@ sub sendTS3User {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "T$i$_")) {
 		print "XBee->Transmit() failed!\n";
 	    }
-	    debug("XBee()->Display(T$i$_)\n");
+	    debug("XBee()->Display($sh, $sl, T$i$_)\n");
 	    $i++;
 	}
     } else {
