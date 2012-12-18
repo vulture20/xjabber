@@ -1,4 +1,26 @@
 #!/usr/bin/perl -w
+# weather.pl - Perl-script for gathering the weather information from yahoo
+# Copyright (C)2012-2013 Thorsten Schroepel. All right reserved
+#
+# If you make any modifications or improvements to the code, I would
+# appreciate that you share the code with me so that I might include
+# it in the next release. I can be contacted through
+# http://www.schroepel.net/.
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+##########################################
 
 my $woeId = "639679"; # Bochum
 
@@ -95,6 +117,8 @@ if ($retcode == 0) {
 	    $forecast[$day]{code} = $6;
 	    $forecast[$day]{condstr} = $conditionString{$6};
 	    $day++;
+	}
+	if ($_ =~ m//) {
 	}
     }
     print $condition->{condstr} . " bei " . $condition->{temp} . "°C\n";
