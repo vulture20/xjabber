@@ -23,6 +23,7 @@
 ##########################################
 
 my $woeId = "639679"; # Bochum
+my $unit = "c"; # f = Fahrenheit / c = Celsius (case sensitive!)
 
 ##########################################
 
@@ -86,7 +87,7 @@ use WWW::Curl::Easy;
 my $curl = WWW::Curl::Easy->new();
 
 $curl->setopt(CURLOPT_HEADER, 1);
-$curl->setopt(CURLOPT_URL, 'http://weather.yahooapis.com/forecastrss?w=' . $woeId . '&u=c');
+$curl->setopt(CURLOPT_URL, 'http://weather.yahooapis.com/forecastrss?w=' . $woeId . '&u=' . $unit);
 
 my $response_body;
 open(my $fp, ">", \$response_body);
@@ -97,6 +98,7 @@ my $day = 0;
 my $condition = {};
 my @forecast = ();
 my $tmp = {};
+my $wind = {};
 
 if ($retcode == 0) {
     my $response_code = $curl->getinfo(CURLINFO_HTTP_CODE);
@@ -118,11 +120,14 @@ if ($retcode == 0) {
 	    $forecast[$day]{condstr} = $conditionString{$6};
 	    $day++;
 	}
-	if ($_ =~ m//) {
+	if ($_ =~ m/<yweather:wind chill=\"([0-9]*)\"   direction=\"([0-9]*)\"   speed=\"([0-9]*\.[0-9]*)\" \/>/) {
+	    $wind->{chill} = $1;
+	    $wind->{direction} = $2;
+	    $wind->{speed} = $3;
 	}
     }
     print $condition->{condstr} . " bei " . $condition->{temp} . "°C\n";
     print "Vorhersage: " . $forecast[0]{condstr} . " bei $forecast[0]{low}-$forecast[0]{high}°C\n";
 } else {
-    print "An error happened: $retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n";
+    print "weather.pl: An error happened: $retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n";
 }
