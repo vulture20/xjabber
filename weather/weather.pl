@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
-# weather.pl - Perl-script for gathering the weather information from yahoo
+# weather.pl - Perl-script for gathering the weather information from
+#              Yahoo! Weather. (http://developer.yahoo.com/weather/)
 # Copyright (C)2012-2013 Thorsten Schroepel. All right reserved
 #
 # If you make any modifications or improvements to the code, I would
@@ -99,6 +100,10 @@ my $condition = {};
 my @forecast = ();
 my $tmp = {};
 my $wind = {};
+my $location = {};
+my $units = {};
+my $atmosphere = {};
+my $astronomy = {};
 
 if ($retcode == 0) {
     my $response_code = $curl->getinfo(CURLINFO_HTTP_CODE);
@@ -124,6 +129,27 @@ if ($retcode == 0) {
 	    $wind->{chill} = $1;
 	    $wind->{direction} = $2;
 	    $wind->{speed} = $3;
+	}
+	if ($_ =~ m/<yweather:location city=\"(.*)\" region=\"(.*)\"   country=\"(.*)\"\/>/) {
+	    $location->{city} = $1;
+	    $location->{region} = $2;
+	    $location->{country} = $3;
+	}
+	if ($_ =~ m/<yweather:units temperature=\"(.*)\" distance=\"(.*)\" pressure=\"(.*)\" speed=\"(.*)\"\/>/) {
+	    $units->{temperature} = $1;
+	    $units->{distance} = $2;
+	    $units->{pressure} = $3;
+	    $units->{speed} = $4;
+	}
+	if ($_ =~ m/<yweather:atmosphere humidity=\"([0-9]*)\"  visibility=\"(.*)\"  pressure=\"(.*)\"  rising=\"([0-9])\" \/>/) {
+	    $atmosphere->{humidity} = $1;
+	    $atmosphere->{visibility} = $2;
+	    $atmosphere->{pressure} = $3;
+	    $atmosphere->{rising} = $4;
+	}
+	if ($_ =~ m/<yweather:astronomy sunrise=\"(.*)\"   sunset=\"(.*)\"\/>/) {
+	    $astronomy->{sunrise} = $1;
+	    $astronomy->{sunset} = $2;
 	}
     }
     print $condition->{condstr} . " bei " . $condition->{temp} . "°C\n";
