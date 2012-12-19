@@ -84,6 +84,7 @@ my %conditionString = (
 use strict;
 use YAML;
 use WWW::Curl::Easy;
+use DBI;
 
 my $curl = WWW::Curl::Easy->new();
 
@@ -152,10 +153,24 @@ if ($retcode == 0) {
 	    $astronomy->{sunset} = $2;
 	}
     }
-    printf("%s|%s|%i\n", $location->{city}, $condition->{condstr}, $condition->{temp});
-    printf("%s|%s|%i|%i\n", $forecast[0]{day}, $forecast[0]{condstr}, $forecast[0]{low}, $forecast[0]{high});
-    printf("%s|%s|%i|%i\n", $forecast[1]{day}, $forecast[1]{condstr}, $forecast[1]{low}, $forecast[1]{high});
-    printf("%i|%s|%i\n", $atmosphere->{humidity}, $atmosphere->{pressure}, $atmosphere->{rising});
-#} else {
-#    print "weather.pl: An error happened: $retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n";
+    my $dbh = DBI->connect("DBI:mysql:".$config->{mysqldb}, $config->{mysqluser}, $config->{mysqlpassword});
+    my $query = qq{ INSERT into weather_condition (text, code, temp, date) VALUES ("$condition->{text}", "$condition->{code}", "$condition->{temp}", "$condition->{date}") };
+    my $sth = $dbh->do($query);
+    $query = qq{ INSERT into weather_forecast (day, date, low, high, text, code) VALUES ("$forecast[0]{day}", "$forecast[0]{date}", "$forecast[0]{low}", "$forecast[0]{high}", "$forecast[0]{text}", "$forecast[0]{code}") };
+    $sth = $dbh->do($query);
+    $query = qq{ INSERT into weather_forecast (day, date, low, high, text, code) VALUES ("$forecast[1]{day}", "$forecast[1]{date}", "$forecast[1]{low}", "$forecast[1]{high}", "$forecast[1]{text}", "$forecast[1]{code}") };
+    $sth = $dbh->do($query);
+    $query = qq{ INSERT into weather_wind (chill, direction, speed) VALUES ("$wind->{chill}", "$wind->{direction}", "$wind->{speed}") };
+    $sth = $dbh->do($query);
+    $query = qq{ INSERT into weather_location (city, region, country) VALUES ("$location->{city}", "$location->{region}", "$location->{country}") };
+    $sth = $dbh->do($query);
+    $query = qq{ INSERT into weather_units (temperature, distance, pressure, speed) VALUES ("$units->{temperature}", "$units->{distance}", "$units->{pressure}", "$units->{speed}") };
+    $sth = $dbh->do($query);
+    $query = qq{ INSERT into weather_atmosphere (humidity, visibility, pressure, rising) VALUES ("$atmosphere->{humidity}", "$atmosphere->{visibility}", "$atmosphere->{pressure}", "$atmosphere->{rising}") };
+    $sth = $dbh->do($query);
+    $query = qq{ INSERT into weather_astronomy (sunrise, sunset) VALUES ("$astronomy->{sunrise}", "$astronomy->{sunset}") };
+    $sth = $dbh->do($query);
+    $dbh->disconnect();
+} else {
+    print "weather.pl: An error happened: $retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n";
 }
