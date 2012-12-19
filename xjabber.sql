@@ -58,10 +58,10 @@ CREATE TABLE IF NOT EXISTS `weather_atmosphere` (
 CREATE TABLE IF NOT EXISTS `weather_condition` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `timecode` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `text` varchar(25) CHARACTER SET latin1 NOT NULL,
+  `text` varchar(25) COLLATE ascii_bin NOT NULL,
   `code` int(11) NOT NULL,
   `temp` int(11) NOT NULL,
-  `date` varchar(15) CHARACTER SET latin1 NOT NULL,
+  `date` varchar(15) COLLATE ascii_bin NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
