@@ -27,7 +27,7 @@ my $config = YAML::LoadFile("/etc/xjabber/xjabber.conf");
 
 ##########################################
 
-my %conditionString = (
+my %conditionString = (			# German translation of the condition codes
     0    => 'Tornado',			# tornado
     1    => 'Tropensturm',		# tropical storm
     2    => 'Wirbelsturm',		# hurricane
@@ -86,16 +86,38 @@ use YAML;
 use WWW::Curl::Easy;
 use DBI;
 
-my $curl = WWW::Curl::Easy->new();
+if ((($#ARGV + 1) == 1)&&($ARGV[0] eq 'cleandb')) {
+    my $dbh = DBI->connect("DBI:mysql:".$config->{mysqldb}, $config->{mysqluser}, $config->{mysqlpassword});
+    my $query = qq{ DELETE FROM weather_condition WHERE timecode < now() - INTERVAL $config->{weathercleandb} DAY; };
+    my $sth = $dbh->do($query);
+    $query = qq{ DELETE FROM weather_forecast WHERE timecode < now() - INTERVAL $config->{weathercleandb} DAY; };
+    $sth = $dbh->do($query);
+    $query = qq{ DELETE FROM weather_wind WHERE timecode < now() - INTERVAL $config->{weathercleandb} DAY; };
+    $sth = $dbh->do($query);
+    $query = qq{ DELETE FROM weather_location WHERE timecode < now() - INTERVAL $config->{weathercleandb} DAY; };
+    $sth = $dbh->do($query);
+    $query = qq{ DELETE FROM weather_units WHERE timecode < now() - INTERVAL $config->{weathercleandb} DAY; };
+    $sth = $dbh->do($query);
+    $query = qq{ DELETE FROM weather_atmosphere WHERE timecode < now() - INTERVAL $config->{weathercleandb} DAY; };
+    $sth = $dbh->do($query);
+    $query = qq{ DELETE FROM weather_astronomy WHERE timecode < now() - INTERVAL $config->{weathercleandb} DAY; };
+    $sth = $dbh->do($query);
+    $dbh->disconnect();
 
-$curl->setopt(CURLOPT_HEADER, 1);
+    exit();
+}
+
+my $curl = WWW::Curl::Easy->new();	# Initialize Curl
+
+$curl->setopt(CURLOPT_HEADER, 1);	# Include the header in the output
 $curl->setopt(CURLOPT_URL, 'http://weather.yahooapis.com/forecastrss?w=' . $config->{weatherwoeid} . '&u=' . $config->{weatherunit});
+					# Set the URL and add the WoeID and unit
 
 my $response_body;
-open(my $fp, ">", \$response_body);
-$curl->setopt(CURLOPT_WRITEDATA, $fp);
+open(my $fp, ">", \$response_body);	# Open a filehandle for the xml data
+$curl->setopt(CURLOPT_WRITEDATA, $fp);	# Set the filehandle as the destination
 
-my $retcode = $curl->perform();
+my $retcode = $curl->perform();		# Get the xml data
 my $day = 0;
 my $condition = {};
 my @forecast = ();
@@ -106,8 +128,8 @@ my $units = {};
 my $atmosphere = {};
 my $astronomy = {};
 
-if ($retcode == 0) {
-    my $response_code = $curl->getinfo(CURLINFO_HTTP_CODE);
+if ($retcode == 0) {			# if everything went ok
+    my $response_code = $curl->getinfo(CURLINFO_HTTP_CODE);	# get the http code (could also be deleted ;-) )
     foreach (split(/\n/, $response_body)) {
 	if ($_ =~ m/<yweather:condition  text=\"(.*)\"  code=\"([0-9]*)\"  temp=\"([0-9]*)\"  date=\"(.*)\" \/>/) {
 	    $condition->{text} = $1;
