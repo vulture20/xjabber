@@ -23,8 +23,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ##########################################
 
-my $woeId = "639679"; # Bochum
-my $unit = "c"; # f = Fahrenheit / c = Celsius (case sensitive!)
+my $config = YAML::LoadFile("/etc/xjabber/xjabber.conf");
 
 ##########################################
 
@@ -83,12 +82,13 @@ my %conditionString = (
 ##########################################
 
 use strict;
+use YAML;
 use WWW::Curl::Easy;
 
 my $curl = WWW::Curl::Easy->new();
 
 $curl->setopt(CURLOPT_HEADER, 1);
-$curl->setopt(CURLOPT_URL, 'http://weather.yahooapis.com/forecastrss?w=' . $woeId . '&u=' . $unit);
+$curl->setopt(CURLOPT_URL, 'http://weather.yahooapis.com/forecastrss?w=' . $config->{weatherwoeid} . '&u=' . $config->{weatherunit});
 
 my $response_body;
 open(my $fp, ">", \$response_body);
