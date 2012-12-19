@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Erstellungszeit: 19. Dezember 2012 um 13:20
+-- Erstellungszeit: 19. Dezember 2012 um 14:43
 -- Server Version: 5.1.66
 -- PHP-Version: 5.3.3-7+squeeze14
 
@@ -28,10 +28,10 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 CREATE TABLE IF NOT EXISTS `weather_astronomy` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `timecode` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `sunrise` varchar(15) COLLATE ascii_bin NOT NULL,
-  `sunset` varchar(15) COLLATE ascii_bin NOT NULL,
+  `sunrise` varchar(8) COLLATE ascii_bin NOT NULL,
+  `sunset` varchar(8) COLLATE ascii_bin NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
+) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
 -- --------------------------------------------------------
 
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `weather_atmosphere` (
   `pressure` float NOT NULL,
   `rising` int(1) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
+) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
 -- --------------------------------------------------------
 
@@ -61,9 +61,9 @@ CREATE TABLE IF NOT EXISTS `weather_condition` (
   `text` varchar(25) COLLATE ascii_bin NOT NULL,
   `code` int(11) NOT NULL,
   `temp` int(11) NOT NULL,
-  `date` varchar(15) COLLATE ascii_bin NOT NULL,
+  `date` varchar(16) COLLATE ascii_bin NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
+) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
 -- --------------------------------------------------------
 
@@ -87,13 +87,13 @@ CREATE TABLE IF NOT EXISTS `weather_forecast` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `timecode` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `day` varchar(3) COLLATE ascii_bin NOT NULL,
-  `date` varchar(15) COLLATE ascii_bin NOT NULL,
+  `date` varchar(16) COLLATE ascii_bin NOT NULL,
   `low` int(11) NOT NULL,
   `high` int(11) NOT NULL,
   `text` varchar(25) COLLATE ascii_bin NOT NULL,
   `code` int(11) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
+) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
 -- --------------------------------------------------------
 
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS `weather_location` (
   `region` varchar(30) COLLATE ascii_bin NOT NULL,
   `country` varchar(30) COLLATE ascii_bin NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
+) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
 -- --------------------------------------------------------
 
@@ -122,9 +122,9 @@ CREATE TABLE IF NOT EXISTS `weather_units` (
   `temperature` varchar(1) COLLATE ascii_bin NOT NULL,
   `distance` varchar(2) COLLATE ascii_bin NOT NULL,
   `pressure` varchar(2) COLLATE ascii_bin NOT NULL,
-  `speed` varchar(3) COLLATE ascii_bin NOT NULL,
+  `speed` varchar(4) COLLATE ascii_bin NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
+) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
 -- --------------------------------------------------------
 
@@ -139,5 +139,5 @@ CREATE TABLE IF NOT EXISTS `weather_wind` (
   `direction` int(11) NOT NULL,
   `speed` int(11) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
+) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
