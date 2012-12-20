@@ -131,14 +131,14 @@ my $astronomy = {};
 if ($retcode == 0) {			# if everything went ok
     my $response_code = $curl->getinfo(CURLINFO_HTTP_CODE);	# get the http code (could also be deleted ;-) )
     foreach (split(/\n/, $response_body)) {
-	if ($_ =~ m/<yweather:condition  text=\"(.*)\"  code=\"([0-9]*)\"  temp=\"([0-9]*)\"  date=\"(.*)\" \/>/) {
+	if ($_ =~ m/<yweather:condition  text=\"(.*)\"  code=\"([0-9]*)\"  temp=\"(.[0-9]*)\"  date=\"(.*)\" \/>/) {
 	    $condition->{text} = $1;
 	    $condition->{code} = $2;
 	    $condition->{temp} = $3;
 	    $condition->{date} = $4;
 	    $condition->{condstr} = $conditionString{$2};
 	}
-	if ($_ =~ m/<yweather:forecast day=\"(.*)\" date=\"(.*)\" low=\"([0-9]*)\" high=\"([0-9]*)\" text=\"(.*)\" code=\"([0-9]*)\" \/>/) {
+	if ($_ =~ m/<yweather:forecast day=\"(.*)\" date=\"(.*)\" low=\"(.[0-9]*)\" high=\"(.[0-9]*)\" text=\"(.*)\" code=\"([0-9]*)\" \/>/) {
 	    $forecast[$day]{day} = $1;
 	    $forecast[$day]{date} = $2;
 	    $forecast[$day]{low} = $3;
@@ -148,7 +148,7 @@ if ($retcode == 0) {			# if everything went ok
 	    $forecast[$day]{condstr} = $conditionString{$6};
 	    $day++;
 	}
-	if ($_ =~ m/<yweather:wind chill=\"([0-9]*)\"   direction=\"([0-9]*)\"   speed=\"([0-9]*\.[0-9]*)\" \/>/) {
+	if ($_ =~ m/<yweather:wind chill=\"(.[0-9]*)\"   direction=\"([0-9]*)\"   speed=\"([0-9]*\.[0-9]*)\" \/>/) {
 	    $wind->{chill} = $1;
 	    $wind->{direction} = $2;
 	    $wind->{speed} = $3;
