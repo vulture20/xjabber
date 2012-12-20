@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS `weather_wind` (
   `timecode` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `chill` int(11) NOT NULL,
   `direction` int(11) NOT NULL,
-  `speed` int(11) NOT NULL,
+  `speed` float NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
