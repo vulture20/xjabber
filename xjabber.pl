@@ -207,9 +207,9 @@ sub InMessage {
 		printf("XBee->Transmit(%x, %x, %s) failed!\n", $sh, $sl, $2);
 	    }
 	} else {
-	    debug("XBee->Send() Node not found!\n");
+	    debug("XBee->Send($1) Node not found!\n");
 	    $connection->MessageSend(
-		to => "$from\@$server", body => "XBee->Send() Node not found!",
+		to => "$from\@$server", body => "XBee->Send($1) Node not found!",
 		resource => $resource);
 	}
     # send 13a200_406fffff message
@@ -217,14 +217,14 @@ sub InMessage {
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*)_([a-zA-Z0-9]*) (.*)/i) {
 	debug("XBee->Send($1_$2 => $3)\n");
         if (!$xbee->tx({sh => hex($1), sl => hex($2)}, $3)) {
-            print "XBee->Transmit() failed!\n";
+            print "XBee->Transmit($1_$2) failed!\n";
         }
     # broadcast message
     # Sende Nachricht per Broadcast
     } elsif ($body =~ m/^broadcast (.*)/i) {
 	debug("XBee->Broadcast($1)\n");
 	if (!$xbee->tx($1)) {
-	    print "XBee->Transmit() failed!\n";
+	    print "XBee->Transmit($1) failed!\n";
 	}
     # open door 1
     # Öffnet Tür (1=Wohnungstür, 2=Haustür, 3=beide Türen)
@@ -244,9 +244,9 @@ sub InMessage {
 		printf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $1);
 	    }
 	} else {
-	    debug("XBee->Send() Node not found!\n");
+	    debug("XBee->Send($1) Node not found!\n");
 	    $connection->MessageSend(
-		to => "$from\@$server", body => "XBee->Send() Node not found!",
+		to => "$from\@$server", body => "XBee->Send($1) Node not found!",
 		resource => $resource);
 	}
     # Kein Befehl - ignorieren bzw. debuggen
@@ -297,13 +297,13 @@ sub sendGTasks {
 	my $i = 0;
 	foreach (@lines) {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "G$i$_")) {
-		print "XBee->Transmit() failed!\n";
+		print "XBee->Transmit($node) failed!\n";
 	    }
 	    debug("XBee()->Display(G$i$_)\n");
 	    $i++;
 	}
     } else {
-	debug("XBee->Send() Node not found!\n");
+	debug("XBee->Send($node) Node not found!\n");
     }
 }
 
@@ -331,13 +331,13 @@ sub sendTS3User {
 	my $i = 0;
 	foreach (@lines) {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "T$i$_")) {
-		print "XBee->Transmit() failed!\n";
+		print "XBee->Transmit($node) failed!\n";
 	    }
 	    debug("XBee()->Display($sh, $sl, T$i$_)\n");
 	    $i++;
 	}
     } else {
-	debug("XBee->Send() Node not found!\n");
+	debug("XBee->Send($node) Node not found!\n");
     }
 }
 
