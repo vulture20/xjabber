@@ -3,21 +3,45 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Erstellungszeit: 19. Dezember 2012 um 14:43
+-- Erstellungszeit: 09. Januar 2013 um 13:58
 -- Server Version: 5.1.66
 -- PHP-Version: 5.3.3-7+squeeze14
 
 SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
-
 --
 -- Datenbank: `xjabber`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Tabellenstruktur für Tabelle `gcalendar`
+--
+
+CREATE TABLE IF NOT EXISTS `gcalendar` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `task` varchar(50) COLLATE ascii_bin NOT NULL,
+  `period` varchar(30) COLLATE ascii_bin NOT NULL,
+  `period_from` datetime NOT NULL,
+  `period_to` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM  DEFAULT CHARSET=ascii COLLATE=ascii_bin;
+
+-- --------------------------------------------------------
+
+--
+-- Tabellenstruktur für Tabelle `teamspeak`
+--
+
+CREATE TABLE IF NOT EXISTS `teamspeak` (
+  `clid` int(10) unsigned NOT NULL,
+  `cid` int(10) unsigned NOT NULL,
+  `client_database_id` int(10) unsigned NOT NULL,
+  `client_nickname` varchar(30) COLLATE ascii_bin NOT NULL,
+  `client_type` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`client_database_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
 -- --------------------------------------------------------
 
