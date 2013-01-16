@@ -319,10 +319,10 @@ sub sendGTasks {
 sub sendTS3User {
     my $node = shift;
 
-    open FILE, "<" . $config->{filets3user};
-    my @lines = <FILE>;
-    close(FILE);
-    chomp(@lines);
+#    open FILE, "<" . $config->{filets3user};
+#    my @lines = <FILE>;
+#    close(FILE);
+#    chomp(@lines);
 
     my $found = 0;
     my $sh = 0; my $sl = 0;
@@ -335,11 +335,18 @@ sub sendTS3User {
     }
     if ($found == 1) {
 	my $i = 0;
-	foreach (@lines) {
-	    if (!$xbee->tx({sh => $sh, sl => $sl}, "T$i$_")) {
+	my $client_nickname;
+
+	my $query = qq{ SELECT client_nickname FROM teamspeak; };
+
+	my $sth = $dbh->prepare($query);
+	$sth->execute();
+	$sth->bind_columns(undef, \$client_nickname);
+	while ($sth->fetch()) {
+	    if (!$xbee->tx({sh => $sh, sl => $sl}, "T$i$client_nickname")) {
 		print "XBee->Transmit($node) failed!\n";
 	    }
-	    debug("XBee()->Display($sh, $sl, T$i$_)\n");
+	    debug("XBee()->Display($sh, $sl, T$i$client_nickname)\n");
 	    $i++;
 	}
     } else {
