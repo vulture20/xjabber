@@ -22,7 +22,7 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 CREATE TABLE IF NOT EXISTS `gcalendar` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `task` varchar(50) COLLATE ascii_bin NOT NULL,
-  `period` varchar(30) COLLATE ascii_bin NOT NULL,
+  `period` varchar(45) COLLATE ascii_bin NOT NULL,
   `period_from` datetime NOT NULL,
   `period_to` datetime NOT NULL,
   PRIMARY KEY (`id`)
