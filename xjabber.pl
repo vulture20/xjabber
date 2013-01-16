@@ -24,6 +24,7 @@
 
 use strict;
 use YAML;
+use DBI;
 use Net::XMPP;
 use Net::Jabber;
 use Device::SerialPort;
@@ -56,6 +57,9 @@ my $xbee = Device::XBee::API->new({fh => $serial_port_device, packet_timeout => 
 #my $xbee = Device::XBee::API->new({fh => $serial_port_device, api_mode_escape => 2}) || die $!;
 debug("XBee->Discover()...\n");
 $xbee->discover_network();
+
+debug("DBI->connect()...\n");
+my $dbh = DBI->connect("DBI:mysql:".$config->{mysqldb}, $config->{mysqluser}, $config->{mysqlpassword});
 
 my $connection = new Net::XMPP::Client();
 $connection->SetCallBacks(message=>\&InMessage);
@@ -95,7 +99,7 @@ while (1) {
     if ($oldtime < time) {
 	$oldtime = time + $config->{interval};
 	debug("Main->Interval()\n");
-#	sendGTasks($config->{xbeedisplay});
+	sendGTasks($config->{xbeedisplay});
 	sendTS3User($config->{xbeedisplay});
     }
     # Process incoming XBee-Messages
@@ -139,6 +143,7 @@ exit(0);
 # Returns: nothing
 sub Stop {
     debug("Main->Exit()\n");
+    $dbh->disconnect();
     $connection->Disconnect();
     exit(0);
 }
@@ -273,16 +278,11 @@ sub debug {
     return;
 }
 
-# Reads the GTasks-File and sends its content to the display-node
+# Reads the next 3 tasks from the db  and sends its content to the display-node
 # Parameter: name of the destination-node
 # Returns: nothing
 sub sendGTasks {
     my $node = shift;
-
-    open FILE, "<" . $config->{filegtasks};
-    my @lines = <FILE>;
-    close(FILE);
-    chomp(@lines);
 
     my $found = 0;
     my $sh = 0; my $sl = 0;
@@ -295,11 +295,17 @@ sub sendGTasks {
     }
     if ($found == 1) {
 	my $i = 0;
-	foreach (@lines) {
-	    if (!$xbee->tx({sh => $sh, sl => $sl}, "G$i$_")) {
+	my ($task, $period);
+
+	my $query = qq{ SELECT task, period FROM gcalendar ORDER BY id ASC LIMIT 3; };
+	my $sth = $dbh->prepare($query);
+	$sth->execute();
+	$sth->bind_columns(undef, \$task, \$period);
+	while ($sth->fetch()) {
+	    if (!$xbee->tx({sh => $sh, sl => $sl}, "G$i$task|$period")) {
 		print "XBee->Transmit($node) failed!\n";
 	    }
-	    debug("XBee()->Display(G$i$_)\n");
+	    debug("XBee()->Display(G$i$task|$period)\n");
 	    $i++;
 	}
     } else {
