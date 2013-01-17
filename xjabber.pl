@@ -319,11 +319,6 @@ sub sendGTasks {
 sub sendTS3User {
     my $node = shift;
 
-#    open FILE, "<" . $config->{filets3user};
-#    my @lines = <FILE>;
-#    close(FILE);
-#    chomp(@lines);
-
     my $found = 0;
     my $sh = 0; my $sl = 0;
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
