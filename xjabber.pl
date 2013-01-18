@@ -199,8 +199,7 @@ sub InMessage {
     # Sende an Node mit dem angegebenen Namen
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*) (.*)/i) {
 	debug("XBee->Send($1 => $2)\n", 3);
-	my $found = 0;
-	my $sh = 0; my $sl = 0;
+	my ($found, $sh, $sl) = (0, 0, 0);
 	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
 	    if (lc($v->{ni}) eq lc($1)) {
 		$sh = $v->{sh};
@@ -236,8 +235,7 @@ sub InMessage {
     # Öffnet Tür (1=Wohnungstür, 2=Haustür, 3=beide Türen)
     } elsif ($body =~ m/^open door ([1-3])/i) {
 	debug("XBee->Open_Door($1)\n", 3);
-	my $found = 0;
-	my $sh = 0; my $sl = 0;
+	my ($found, $sh, $sl) = (0, 0, 0);
 	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
 	    if (lc($v->{ni}) eq $config->{xbeedoor}) {
 		$sh = $v->{sh};
@@ -285,8 +283,7 @@ sub debug {
 sub sendGTasks {
     my $node = shift;
 
-    my $found = 0;
-    my $sh = 0; my $sl = 0;
+    my ($found, $sh, $sl) = (0, 0, 0);
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
 	if (lc($v->{ni}) eq $node) {
 	    $sh = $v->{sh};
@@ -318,8 +315,7 @@ sub sendGTasks {
 sub sendTS3User {
     my $node = shift;
 
-    my $found = 0;
-    my $sh = 0; my $sl = 0;
+    my ($found, $sh, $sl) = (0, 0, 0);
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
 	if (lc($v->{ni}) eq $node) {
 	    $sh = $v->{sh};
@@ -350,8 +346,7 @@ sub sendTS3User {
 sub sendWeather {
     my $node = shift;
 
-    my $found = 0;
-    my $sh = 0; my $sl = 0;
+    my ($found, $sh, $sl) = (0, 0, 0);
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
 	if (lc($v->{ni}) eq $node) {
 	    $sh = $v->{sh};
@@ -407,7 +402,7 @@ sub sendWeather {
 # Returns: Deviceobject or undef
 sub resolveName {
     my $name = shift;
-    my $sh = 0; my $sl = 0;
+    my ($sh, $sl) = (0, 0);
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
 	if (lc($v->{ni}) eq $config->{$name}) {
 	    $sh = $v->{sh};
