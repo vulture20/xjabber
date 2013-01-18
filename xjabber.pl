@@ -366,29 +366,42 @@ sub sendWeather {
 	    $found = 1;
 	}
     }
-    if ($found == 0) {
+    if ($found == 1) {
 	my ($condition_timecode, $condition_code, $condition_temp, $conditionString);
 	my ($forecast_timecode, $forecast_low, $forecast_high, $forecast_code);
+	my ($units_temperature, $units_distance, $units_pressure, $units_speed);
 	my $dateformat = $config->{dateformat};
 
-	querydb("SELECT DATE_FORMAT(timecode, '$dateformat'), code, temp FROM weather_condition ORDER BY id DESC LIMIT 1;", undef, \$condition_timecode, \$condition_code, \$condition_temp);
-	$conditionString = getCondString($condition_code);
-
-	if (!$xbee->tx({sh => $sh, sl => $sl}, "W0$condition_timecode|$condition_temp|$condition_code|$conditionString")) {
+	querydb("SELECT temperature, distance, pressure, speed FROM weather_units ORDER BY id DESC LIMIT 1;",
+	  undef, \$units_temperature, \$units_distance, \$units_pressure, \$units_speed);
+	my $sendString = "W3$units_temperature|$units_distance|$units_pressure|$units_speed";
+	if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 	    print "XBee->Transmit($node) failed!\n";
 	}
-	debug("XBee()->Display($sh, $sl, W0$condition_timecode|$condition_temp|$condition_code|$conditionString)\n");
+	debug("XBee()->Display($sh, $sl, $sendString)\n");
 
-	my $sth = querydb("SELECT DATE_FORMAT(timecode, '%w'), low, high, code FROM weather_forecast ORDER BY id DESC LIMIT 2;", undef, \$forecast_timecode, \$forecast_low, \$forecast_high, \$forecast_code);
+	querydb("SELECT DATE_FORMAT(timecode, '$dateformat'), code, temp FROM weather_condition ORDER BY id DESC LIMIT 1;",
+	  undef, \$condition_timecode, \$condition_code, \$condition_temp);
+	$conditionString = getCondString($condition_code);
+
+	$sendString = "W0$condition_timecode|$condition_temp|$condition_code|$conditionString";
+	if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
+	    print "XBee->Transmit($node) failed!\n";
+	}
+	debug("XBee()->Display($sh, $sl, $sendString)\n");
+
+	my $sth = querydb("SELECT DATE_FORMAT(timecode, '%w'), low, high, code FROM weather_forecast ORDER BY id DESC LIMIT 2;",
+	  undef, \$forecast_timecode, \$forecast_low, \$forecast_high, \$forecast_code);
 	for (my $i=1; $i<=$sth->rows; $i++) {
 	    $conditionString = getCondString($forecast_code);
 	    $forecast_timecode += $i - 1;
 	    $forecast_timecode %= 7;
 	    my $weekday = @{$config->{weekdays}}[$forecast_timecode];
-	    if (!$xbee->tx({sh => $sh, sl => $sl}, "W$i$weekday|$forecast_low|$forecast_high|$forecast_code|$conditionString")) {
+	    $sendString = "W$i$weekday|$forecast_low|$forecast_high|$forecast_code|$conditionString";
+	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 		print "XBee->Transmit($node) failed!\n";
 	    }
-	    debug("XBee()->Display($sh, $sl, W$i$weekday|$forecast_low|$forecast_high|$forecast_code|$conditionString)\n");
+	    debug("XBee()->Display($sh, $sl, $sendString)\n");
 	    if ($i < 2) { $sth->fetch(); }
 	}
     } else {
