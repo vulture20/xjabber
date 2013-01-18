@@ -295,19 +295,16 @@ sub sendGTasks {
 	}
     }
     if ($found == 1) {
-	my $i = 0;
-	my ($task, $period);
+	my ($gcal_task, $gcal_period);
 
-	my $query = qq{ SELECT task, period FROM gcalendar ORDER BY id ASC LIMIT 3; };
-	my $sth = $dbh->prepare($query);
-	$sth->execute();
-	$sth->bind_columns(undef, \$task, \$period);
-	while ($sth->fetch()) {
-	    if (!$xbee->tx({sh => $sh, sl => $sl}, "G$i$task|$period")) {
+	my $sth = querydb("SELECT task, period FROM gcalendar ORDER BY id ASC LIMIT 3;", undef, \$gcal_task, \$gcal_period);
+	for (my $i = 0; $i < $sth->rows; $i++) {
+	    my $sendString = "G$i$gcal_task|$gcal_period";
+	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 		print "XBee->Transmit($node) failed!\n";
 	    }
-	    debug("XBee()->Display(G$i$task|$period)\n");
-	    $i++;
+	    debug("XBee()->Display($sh, $sl, $sendString)\n");
+	    if ($i < $sth->rows) { $sth->fetch(); }
 	}
     } else {
 	debug("XBee->Send($node) Node not found!\n");
@@ -331,20 +328,16 @@ sub sendTS3User {
 	}
     }
     if ($found == 1) {
-	my $i = 0;
 	my $client_nickname;
 
-	my $query = qq{ SELECT client_nickname FROM teamspeak; };
-
-	my $sth = $dbh->prepare($query);
-	$sth->execute();
-	$sth->bind_columns(undef, \$client_nickname);
-	while ($sth->fetch()) {
-	    if (!$xbee->tx({sh => $sh, sl => $sl}, "T$i$client_nickname")) {
+	my $sth = querydb("SELECT client_nickname FROM teamspeak;", undef, \$client_nickname);
+	for (my $i = 0; $i < $sth->rows; $i++) {
+	    my $sendString = "T$i$client_nickname";
+	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 		print "XBee->Transmit($node) failed!\n";
 	    }
-	    debug("XBee()->Display($sh, $sl, T$i$client_nickname)\n");
-	    $i++;
+	    debug("XBee()->Display($sh, $sl, $sendString)\n");
+	    if ($i < $sth->rows) { $sth->fetch(); }
 	}
     } else {
 	debug("XBee->Send($node) Node not found!\n");
@@ -392,7 +385,7 @@ sub sendWeather {
 
 	my $sth = querydb("SELECT DATE_FORMAT(timecode, '%w'), low, high, code FROM weather_forecast ORDER BY id DESC LIMIT 2;",
 	  undef, \$forecast_timecode, \$forecast_low, \$forecast_high, \$forecast_code);
-	for (my $i=1; $i<=$sth->rows; $i++) {
+	for (my $i = 1; $i <= $sth->rows; $i++) {
 	    $conditionString = getCondString($forecast_code);
 	    $forecast_timecode += $i - 1;
 	    $forecast_timecode %= 7;
