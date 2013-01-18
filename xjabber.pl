@@ -53,8 +53,7 @@ $serial_port_device->parity($config->{xbeeparity});
 $serial_port_device->read_char_time(0);
 $serial_port_device->read_const_time(1000);
 
-my $xbee = Device::XBee::API->new({fh => $serial_port_device, packet_timeout => 3, api_mode_escape => 2}) || die $!;
-#my $xbee = Device::XBee::API->new({fh => $serial_port_device, api_mode_escape => 2}) || die $!;
+my $xbee = Device::XBee::API->new({fh => $serial_port_device, packet_timeout => 3}) || die $!;
 debug("XBee->Discover()...\n", 1);
 $xbee->discover_network();
 
@@ -118,7 +117,8 @@ while (1) {
 		resource => $config->{resource});
 
 	    if (($rx->{data} =~ m/C([0-9]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
-		my $hash = hmac_sha256_hex($1, $config->{hmacKey});
+		debug("XBee->Challenge($1)\n", 4);
+		my $hash = hmac_sha256_hex($1, pack("H*", $config->{hmacKey}));
 		my $body = sprintf("%x:%x (%s)> %s", $rx->{sh}, $rx->{sl}, $ni, "H$hash");
 		$connection->MessageSend(
 		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
