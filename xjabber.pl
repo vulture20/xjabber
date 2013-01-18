@@ -55,10 +55,10 @@ $serial_port_device->read_const_time(1000);
 
 my $xbee = Device::XBee::API->new({fh => $serial_port_device, packet_timeout => 3, api_mode_escape => 2}) || die $!;
 #my $xbee = Device::XBee::API->new({fh => $serial_port_device, api_mode_escape => 2}) || die $!;
-debug("XBee->Discover()...\n");
+debug("XBee->Discover()...\n", 1);
 $xbee->discover_network();
 
-debug("DBI->connect()...\n");
+debug("DBI->connect()...\n", 1);
 my $dbh = DBI->connect("DBI:mysql:".$config->{mysqldb}, $config->{mysqluser}, $config->{mysqlpassword});
 
 my $connection = new Net::XMPP::Client();
@@ -86,19 +86,19 @@ if ($result[0] ne "ok") {
     exit(0);
 }
 
-debug("XBee->PresenceSend()...\n");
+debug("XBee->PresenceSend()...\n", 2);
 $connection->PresenceSend();
 
 while (1) {
     # Process incoming Jabber-Messages
     if (!defined($connection->Process(1))) {
-	debug("XBee->Disconnected()\n");
+	debug("XBee->Disconnected()\n", 1);
 	exit(254);
     }
     # Interval-Timer
     if ($oldtime < time) {
 	$oldtime = time + $config->{interval};
-	debug("Main->Interval()\n");
+	debug("Main->Interval()\n", 2);
 	sendGTasks($config->{xbeedisplay});
 	sendTS3User($config->{xbeedisplay});
 	sendWeather($config->{xbeedisplay});
@@ -111,8 +111,8 @@ while (1) {
 	    if (!defined($ni)) { $ni = "N/A"; }
 	
 	    my $body = sprintf("%x:%x (%s)> %s", $rx->{sh}, $rx->{sl}, $ni, $rx->{data});
-	    debug("XBee->MessageSend(".$config->{sendTo}.")->$body\n");
-	    debug("Xbee->MessageSend(".$config->{sendTo}.")->Hash(" . hmac_sha256_hex($body, $config->{hmacKey}) . ")\n");
+	    debug("XBee->MessageSend(".$config->{sendTo}.")->$body\n", 4);
+	    debug("XBee->MessageSend(".$config->{sendTo}.")->Hash(" . hmac_sha256_hex($body, $config->{hmacKey}) . ")\n", 4);
 	    $connection->MessageSend(
 		to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		resource => $config->{resource});
@@ -128,7 +128,7 @@ while (1) {
 		}
 	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
-		debug("XBee->RFID($1)\n");
+		debug("XBee->RFID($1)\n", 3);
 		$connection->MessageSend(
 		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		    resource => $config->{resource});
@@ -143,7 +143,7 @@ exit(0);
 # Parameter: none
 # Returns: nothing
 sub Stop {
-    debug("Main->Exit()\n");
+    debug("Main->Exit()\n", 1);
     $dbh->disconnect();
     $connection->Disconnect();
     exit(0);
@@ -172,7 +172,7 @@ sub InMessage {
     # discover
     # Veranlasse ein Discover des XBee-Moduls
     if ($body =~ m/^discover/i) {
-	debug("XBee->Discover()...\n");
+	debug("XBee->Discover()...\n", 3);
 	$connection->MessageSend(
 	    to => "$from\@$server", body => "Discovering...",
     	    resource => $resource);
@@ -180,7 +180,7 @@ sub InMessage {
     # exit
     # Beende den Server
     } elsif ($body =~ m/^exit/i) {
-	debug("Main->Exit()\n");
+	debug("Main->Exit()\n", 1);
 	$connection->Disconnect();
 	exit(0);
     # nodes
@@ -198,7 +198,7 @@ sub InMessage {
     # send testnode message
     # Sende an Node mit dem angegebenen Namen
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*) (.*)/i) {
-	debug("XBee->Send($1 => $2)\n");
+	debug("XBee->Send($1 => $2)\n", 3);
 	my $found = 0;
 	my $sh = 0; my $sl = 0;
 	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
@@ -213,7 +213,7 @@ sub InMessage {
 		printf("XBee->Transmit(%x, %x, %s) failed!\n", $sh, $sl, $2);
 	    }
 	} else {
-	    debug("XBee->Send($1) Node not found!\n");
+	    debug("XBee->Send($1) Node not found!\n", 3);
 	    $connection->MessageSend(
 		to => "$from\@$server", body => "XBee->Send($1) Node not found!",
 		resource => $resource);
@@ -221,21 +221,21 @@ sub InMessage {
     # send 13a200_406fffff message
     # Sende an 64bit-Adresse
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*)_([a-zA-Z0-9]*) (.*)/i) {
-	debug("XBee->Send($1_$2 => $3)\n");
+	debug("XBee->Send($1_$2 => $3)\n", 3);
         if (!$xbee->tx({sh => hex($1), sl => hex($2)}, $3)) {
             print "XBee->Transmit($1_$2) failed!\n";
         }
     # broadcast message
     # Sende Nachricht per Broadcast
     } elsif ($body =~ m/^broadcast (.*)/i) {
-	debug("XBee->Broadcast($1)\n");
+	debug("XBee->Broadcast($1)\n", 3);
 	if (!$xbee->tx($1)) {
 	    print "XBee->Transmit($1) failed!\n";
 	}
     # open door 1
     # Öffnet Tür (1=Wohnungstür, 2=Haustür, 3=beide Türen)
     } elsif ($body =~ m/^open door ([1-3])/i) {
-	debug("XBee->Open_Door($1)\n");
+	debug("XBee->Open_Door($1)\n", 3);
 	my $found = 0;
 	my $sh = 0; my $sl = 0;
 	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
@@ -250,14 +250,14 @@ sub InMessage {
 		printf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $1);
 	    }
 	} else {
-	    debug("XBee->Send($1) Node not found!\n");
+	    debug("XBee->Send($1) Node not found!\n", 3);
 	    $connection->MessageSend(
 		to => "$from\@$server", body => "XBee->Send($1) Node not found!",
 		resource => $resource);
 	}
     # Kein Befehl - ignorieren bzw. debuggen
     } else {
-	if ($config->{debug}) {
+	if ($config->{debug} >= 5) {
 	    print "===\n";
 	    print "Message ($type)\n";
 	    print "  From: $from ($resource)\n";
@@ -272,10 +272,10 @@ sub InMessage {
 }
 
 # Prints the given message if debugging is enabled
-# Parameter: the messagestring
+# Parameter: messagestring, debuglevel
 # Returns: nothing
 sub debug {
-    if ($config->{debug}) { print shift; }
+    if ($_[1] <= $config->{debug}) { print $_[0]; }
     return;
 }
 
@@ -303,11 +303,11 @@ sub sendGTasks {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 		print "XBee->Transmit($node) failed!\n";
 	    }
-	    debug("XBee()->Display($sh, $sl, $sendString)\n");
+	    debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 	    if ($i < $sth->rows) { $sth->fetch(); }
 	}
     } else {
-	debug("XBee->Send($node) Node not found!\n");
+	debug("XBee->Send($node) Node not found!\n", 2);
     }
 }
 
@@ -336,11 +336,11 @@ sub sendTS3User {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 		print "XBee->Transmit($node) failed!\n";
 	    }
-	    debug("XBee()->Display($sh, $sl, $sendString)\n");
+	    debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 	    if ($i < $sth->rows) { $sth->fetch(); }
 	}
     } else {
-	debug("XBee->Send($node) Node not found!\n");
+	debug("XBee->Send($node) Node not found!\n", 2);
     }
 }
 
@@ -371,7 +371,7 @@ sub sendWeather {
 	if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 	    print "XBee->Transmit($node) failed!\n";
 	}
-	debug("XBee()->Display($sh, $sl, $sendString)\n");
+	debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 
 	querydb("SELECT DATE_FORMAT(timecode, '$dateformat'), code, temp FROM weather_condition ORDER BY id DESC LIMIT 1;",
 	  undef, \$condition_timecode, \$condition_code, \$condition_temp);
@@ -381,7 +381,7 @@ sub sendWeather {
 	if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 	    print "XBee->Transmit($node) failed!\n";
 	}
-	debug("XBee()->Display($sh, $sl, $sendString)\n");
+	debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 
 	my $sth = querydb("SELECT DATE_FORMAT(timecode, '%w'), low, high, code FROM weather_forecast ORDER BY id DESC LIMIT 2;",
 	  undef, \$forecast_timecode, \$forecast_low, \$forecast_high, \$forecast_code);
@@ -394,11 +394,11 @@ sub sendWeather {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
 		print "XBee->Transmit($node) failed!\n";
 	    }
-	    debug("XBee()->Display($sh, $sl, $sendString)\n");
+	    debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 	    if ($i < 2) { $sth->fetch(); }
 	}
     } else {
-	debug("XBee->Send($node) Node not found!\n");
+	debug("XBee->Send($node) Node not found!\n", 2);
     }
 }
 
