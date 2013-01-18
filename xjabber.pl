@@ -382,6 +382,8 @@ sub sendWeather {
 	my $sth = querydb("SELECT DATE_FORMAT(timecode, '%w'), low, high, code FROM weather_forecast ORDER BY id DESC LIMIT 2;", undef, \$forecast_timecode, \$forecast_low, \$forecast_high, \$forecast_code);
 	for (my $i=1; $i<=$sth->rows; $i++) {
 	    $conditionString = getCondString($forecast_code);
+	    $forecast_timecode += $i - 1;
+	    $forecast_timecode %= 7;
 	    my $weekday = @{$config->{weekdays}}[$forecast_timecode];
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "W$i$weekday|$forecast_low|$forecast_high|$forecast_code|$conditionString")) {
 		print "XBee->Transmit($node) failed!\n";
