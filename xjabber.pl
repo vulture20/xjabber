@@ -43,7 +43,7 @@ $SIG{KILL} = \&Stop;
 $SIG{TERM} = \&Stop;
 $SIG{INT} = \&Stop;
 
-my $oldtime = 0;
+my ($oldtime, $discovertime) = (0, time);
 
 my $serial_port_device = Device::SerialPort->new($config->{xbeedev}) || die $!;
 $serial_port_device->baudrate($config->{xbeebaud});
@@ -101,6 +101,11 @@ while (1) {
 	sendGTasks($config->{xbeedisplay});
 	sendTS3User($config->{xbeedisplay});
 	sendWeather($config->{xbeedisplay});
+    }
+    if ($discovertime < time) {
+	$discovertime = time + $config->{discover};
+	debug("Main->Discoverinterval()\n", 2);
+	$xbee->discover_network();
     }
     # Process incoming XBee-Messages
     if (my $rx = $xbee->rx()) {
