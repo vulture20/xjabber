@@ -101,6 +101,7 @@ while (1) {
 	debug("Main->Interval()\n");
 	sendGTasks($config->{xbeedisplay});
 	sendTS3User($config->{xbeedisplay});
+	sendWeather($config->{xbeedisplay});
     }
     # Process incoming XBee-Messages
     if (my $rx = $xbee->rx()) {
@@ -278,7 +279,7 @@ sub debug {
     return;
 }
 
-# Reads the next 3 tasks from the db  and sends its content to the display-node
+# Reads the next 3 tasks from the db and sends its content to the display-node
 # Parameter: name of the destination-node
 # Returns: nothing
 sub sendGTasks {
@@ -313,7 +314,8 @@ sub sendGTasks {
     }
 }
 
-# Reads the TS3User-File and sends the content to the display-node
+# Reads the logged in TS3-clients from the db and sends the content to
+#   the display-node
 # Parameter: name of the destination-node
 # Returns: nothing
 sub sendTS3User {
@@ -349,6 +351,49 @@ sub sendTS3User {
     }
 }
 
+# Reads weather data from the db and sends the content to the display-node
+# Parameter: name of the destination-node
+# Returns: nothing
+sub sendWeather {
+    my $node = shift;
+
+    my $found = 0;
+    my $sh = 0; my $sl = 0;
+    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+	if (lc($v->{ni}) eq $node) {
+	    $sh = $v->{sh};
+	    $sl = $v->{sl};
+	    $found = 1;
+	}
+    }
+    if ($found == 0) {
+	my ($condition_timecode, $condition_code, $condition_temp, $conditionString);
+	my ($forecast_timecode, $forecast_low, $forecast_high, $forecast_code);
+	my $dateformat = $config->{dateformat};
+
+	querydb("SELECT DATE_FORMAT(timecode, '$dateformat'), code, temp FROM weather_condition ORDER BY id DESC LIMIT 1;", undef, \$condition_timecode, \$condition_code, \$condition_temp);
+	$conditionString = getCondString($condition_code);
+
+	if (!$xbee->tx({sh => $sh, sl => $sl}, "W0$condition_timecode|$condition_temp|$condition_code|$conditionString")) {
+	    print "XBee->Transmit($node) failed!\n";
+	}
+	debug("XBee()->Display($sh, $sl, W0$condition_timecode|$condition_temp|$condition_code|$conditionString)\n");
+
+	my $sth = querydb("SELECT DATE_FORMAT(timecode, '%w'), low, high, code FROM weather_forecast ORDER BY id DESC LIMIT 2;", undef, \$forecast_timecode, \$forecast_low, \$forecast_high, \$forecast_code);
+	for (my $i=1; $i<=$sth->rows; $i++) {
+	    $conditionString = getCondString($forecast_code);
+	    my $weekday = @{$config->{weekdays}}[$forecast_timecode];
+	    if (!$xbee->tx({sh => $sh, sl => $sl}, "W$i$weekday|$forecast_low|$forecast_high|$forecast_code|$conditionString")) {
+		print "XBee->Transmit($node) failed!\n";
+	    }
+	    debug("XBee()->Display($sh, $sl, W$i$weekday|$forecast_low|$forecast_high|$forecast_code|$conditionString)\n");
+	    if ($i < 2) { $sth->fetch(); }
+	}
+    } else {
+	debug("XBee->Send($node) Node not found!\n");
+    }
+}
+
 # Resolves the XBee-Deviceaddress from its name
 # Parameter: Devicename
 # Returns: Deviceobject or undef
@@ -376,4 +421,29 @@ sub resolveID {
 	}
     }
     return undef;
+}
+
+# Wrapper to query the db and fetch the results
+# Parameter: query, var1, var2 ... varx
+# Returns: Handle $sth (Results in var1 ... varx)
+sub querydb {
+    my $query = shift;
+
+    my $sth = $dbh->prepare($query);
+    $sth->execute();
+    $sth->bind_columns(@_);
+    $sth->fetch();
+    return $sth;
+}
+
+# Queries the Conditionstring for an given id
+# Parameter: id
+# Returns: ConditionString or undef
+sub getCondString {
+    my $id = shift;
+    my $condString;
+
+    my $sth = querydb("SELECT conditionString FROM weather_condString WHERE id=$id;", undef, \$condString);
+    if ($sth->rows == 0) { return undef; }
+    return $condString;
 }
