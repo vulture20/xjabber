@@ -44,7 +44,7 @@ $SIG{KILL} = \&Stop;
 $SIG{TERM} = \&Stop;
 $SIG{INT} = \&Stop;
 
-my ($oldtime, $discovertime) = (0, time + $config->{discover});
+my ($oldtime, $discovertime, $challengetime) = (0, time + $config->{discover}, 0);
 
 my $serial_port_device = Device::SerialPort->new($config->{xbeedev}) || die $!;
 $serial_port_device->baudrate($config->{xbeebaud});
@@ -123,13 +123,18 @@ while (1) {
 
 	    if (($rx->{data} =~ m/C([0-9]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		debug("XBee->Challenge($1)\n", 4);
-		my $hash = hmac_sha256_hex($1, pack("H*", $config->{hmacKey}));
-		my $body = sprintf("%x:%x (%s)> %s", $rx->{sh}, $rx->{sl}, $ni, "H$hash");
-		$connection->MessageSend(
-		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
-		    resource => $config->{resource});
-		if (!$xbee->tx({sh => $rx->{sh}, sl => $rx->{sl}}, "H$hash")) {
-		    error("XBee->Transmit(H...) failed!\n");
+		debug("Challengetime: $challengetime - Time: " . time . " - Diff: " . ($challengetime - time) . "\n", 5);
+		if ($challengetime > time) {
+		    my $hash = hmac_sha256_hex($1, pack("H*", $config->{hmacKey}));
+		    my $body = sprintf("%x:%x (%s)> %s", $rx->{sh}, $rx->{sl}, $ni, "H$hash");
+		    $connection->MessageSend(
+			to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
+			resource => $config->{resource});
+		    if (!$xbee->tx({sh => $rx->{sh}, sl => $rx->{sl}}, "H$hash")) {
+			error("XBee->Transmit(H...) failed!\n");
+		    }
+		} else {
+		    error("Challenge has been timed out!\n");
 		}
 	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
@@ -250,6 +255,7 @@ sub InMessage {
 	    }
 	}
 	if ($found == 1) {
+	    $challengetime = time + $config->{challengeinterval};
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "R$1")) {
 		my $tmp = sprintf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $1);
 		error($tmp);
