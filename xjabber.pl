@@ -430,9 +430,15 @@ sub resolveName {
 # Returns: Devicename or undef
 sub resolveID {
     my ($sh, $sl) = @_;
-    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	if (($sh eq $v->{sh}) && ($sl eq $v->{sl})) {
-	    return $v->{ni};
+
+    debug("resolveID($sh, $sl)\n", 4);
+
+    for (my $i=0; $i<2; $i++) { # Sometimes it needs 2 attempts to resolve the name (object "busy"?)
+	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+	    debug("$sh:$sl -> $v->{sh}:$v->{sl} / $v->{ni}\n", 6);
+	    if (($sh eq $v->{sh}) && ($sl eq $v->{sl})) {
+		return $v->{ni};
+	    }
 	}
     }
     return undef;
