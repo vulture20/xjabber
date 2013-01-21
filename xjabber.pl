@@ -43,7 +43,7 @@ $SIG{KILL} = \&Stop;
 $SIG{TERM} = \&Stop;
 $SIG{INT} = \&Stop;
 
-my ($oldtime, $discovertime) = (0, time);
+my ($oldtime, $discovertime) = (0, time + $config->{discover});
 
 my $serial_port_device = Device::SerialPort->new($config->{xbeedev}) || die $!;
 $serial_port_device->baudrate($config->{xbeebaud});
