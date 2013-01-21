@@ -127,6 +127,9 @@ void loop() {
               digitalWrite(housedoor, HIGH);
               break;
           }
+          for (int i=0; i<sizeof(hmacString); i++) { // Delete the hmacString
+            hmacString[i] = 0x00; // to prevent replay attacks
+          }
         } else {
           flashLed(3, 200); // Flash 3 times for 200ms
         }
