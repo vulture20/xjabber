@@ -73,8 +73,8 @@ void loop() {
     xbee.send(zbTx); // Send it
   }
   xbee.readPacket(); // Try to read a XBee-Packet
-  if (xbee.getResponse().isAvailable()) { // is a XBee-Packet available?
-    if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // Was it a response to a previously send packet?
+  if (xbee.getResponse().isAvailable()) { // Is a XBee-Packet available?
+    if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // Was it a response to a previously sent packet?
       xbee.getResponse().getZBRxResponse(rx);
 
       if (rx.getOption() == ZB_PACKET_ACKNOWLEDGED) { // Packet was send succesfully
