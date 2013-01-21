@@ -77,7 +77,7 @@ void loop() {
     if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // Was it a response to a previously sent packet?
       xbee.getResponse().getZBRxResponse(rx);
 
-      if (rx.getOption() == ZB_PACKET_ACKNOWLEDGED) { // Packet was send succesfully
+      if (rx.getOption() == ZB_PACKET_ACKNOWLEDGED) { // Packet was sent succesfully
         flashLed(1, 500); // Flash for 500ms
       } else {
         flashLed(5, 50); // Error: Flash 5 times for 50ms
