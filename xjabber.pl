@@ -306,16 +306,10 @@ sub error {
 sub sendGTasks {
     my $node = shift;
 
-    my ($found, $sh, $sl) = (0, 0, 0);
-    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	if (lc($v->{ni}) eq $node) {
-	    $sh = $v->{sh};
-	    $sl = $v->{sl};
-	    $found = 1;
-	}
-    }
-    if ($found == 1) {
+    debug("sendGTasks()\n", 2);
+    if (my $tmp = resolveName($node)) {
 	my ($gcal_task, $gcal_period);
+	my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
 
 	my $sth = querydb("SELECT task, period FROM gcalendar ORDER BY id ASC LIMIT 3;", undef, \$gcal_task, \$gcal_period);
 	for (my $i = 0; $i < $sth->rows; $i++) {
@@ -338,16 +332,10 @@ sub sendGTasks {
 sub sendTS3User {
     my $node = shift;
 
-    my ($found, $sh, $sl) = (0, 0, 0);
-    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	if (lc($v->{ni}) eq $node) {
-	    $sh = $v->{sh};
-	    $sl = $v->{sl};
-	    $found = 1;
-	}
-    }
-    if ($found == 1) {
+    debug("sendTS3User()\n", 2);
+    if (my $tmp = resolveName($node)) {
 	my $client_nickname;
+	my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
 
 	my $sth = querydb("SELECT client_nickname FROM teamspeak;", undef, \$client_nickname);
 	for (my $i = 0; $i < $sth->rows; $i++) {
@@ -369,19 +357,13 @@ sub sendTS3User {
 sub sendWeather {
     my $node = shift;
 
-    my ($found, $sh, $sl) = (0, 0, 0);
-    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	if (lc($v->{ni}) eq $node) {
-	    $sh = $v->{sh};
-	    $sl = $v->{sl};
-	    $found = 1;
-	}
-    }
-    if ($found == 1) {
+    debug("sendWeather()\n", 2);
+    if (my $tmp = resolveName($node)) {
 	my ($condition_timecode, $condition_code, $condition_temp, $conditionString);
 	my ($forecast_timecode, $forecast_low, $forecast_high, $forecast_code);
 	my ($units_temperature, $units_distance, $units_pressure, $units_speed);
 	my $dateformat = $config->{dateformat};
+	my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
 
 	querydb("SELECT temperature, distance, pressure, speed FROM weather_units ORDER BY id DESC LIMIT 1;",
 	  undef, \$units_temperature, \$units_distance, \$units_pressure, \$units_speed);
@@ -426,13 +408,20 @@ sub sendWeather {
 sub resolveName {
     my $name = shift;
     my ($sh, $sl) = (0, 0);
-    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	if (lc($v->{ni}) eq $config->{$name}) {
-	    $sh = $v->{sh};
-	    $sl = $v->{sl};
-	    return $v;
+
+    debug("resolveName($name)\n", 4);
+
+    for (my $i=0; $i<2; $i++) { # Sometimes it needs 2 attempts to resolve the name (object "busy"?)
+	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+	    debug("$name -> $v->{ni} / $v->{sh}:$v->{sl}\n", 6);
+	    if (lc($v->{ni}) eq $name) {
+		$sh = $v->{sh};
+		$sl = $v->{sl};
+		return $v;
+	    }
 	}
     }
+
     return undef;
 }
 
