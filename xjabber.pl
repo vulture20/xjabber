@@ -209,15 +209,18 @@ sub InMessage {
     # Sende an Node mit dem angegebenen Namen
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*) (.*)/i) {
 	debug("XBee->Send($1 => $2)\n", 3);
-	my ($found, $sh, $sl) = (0, 0, 0);
-	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	    if (lc($v->{ni}) eq lc($1)) {
-		$sh = $v->{sh};
-		$sl = $v->{sl};
-		$found = 1;
-	    }
-	}
-	if ($found == 1) {
+#	my ($found, $sh, $sl) = (0, 0, 0);
+#	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+#	    if (lc($v->{ni}) eq lc($1)) {
+#		$sh = $v->{sh};
+#		$sl = $v->{sl};
+#		$found = 1;
+#	    }
+#	}
+#	if ($found == 1) {
+	if (my $tmp = resolveName($1)) {
+	    my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
+
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $2)) {
 		my $tmp = sprintf("XBee->Transmit(%x, %x, %s) failed!\n", $sh, $sl, $2);
 		error($tmp);
@@ -246,15 +249,9 @@ sub InMessage {
     # Öffnet Tür (1=Wohnungstür, 2=Haustür, 3=beide Türen)
     } elsif ($body =~ m/^open door ([1-3])/i) {
 	debug("XBee->Open_Door($1)\n", 3);
-	my ($found, $sh, $sl) = (0, 0, 0);
-	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	    if (lc($v->{ni}) eq $config->{xbeedoor}) {
-		$sh = $v->{sh};
-		$sl = $v->{sl};
-		$found = 1;
-	    }
-	}
-	if ($found == 1) {
+	if (my $tmp = resolveName($config->{xbeedoor})) {
+	    my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
+
 	    $challengetime = time + $config->{challengeinterval};
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "R$1")) {
 		my $tmp = sprintf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $1);
