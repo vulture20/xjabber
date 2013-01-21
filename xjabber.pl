@@ -31,6 +31,7 @@ use Device::SerialPort;
 use Device::XBee::API;
 use Digest::SHA qw(hmac_sha256_hex);
 use Time::HiRes qw(setitimer ITIMER_VIRTUAL time);
+use POSIX qw(strftime);
 
 #############################################################
 
@@ -68,8 +69,7 @@ my $status = $connection->Connect(
     connectiontype => $config->{connectiontype}, tls => $config->{tls});
 
 if (!(defined($status))) {
-    print "ERROR: XMPP connection failed.\n";
-    print "		($!)\n";
+    error("XMPP connection failed.\n		($!)\n");
     exit(0);
 }
 
@@ -81,7 +81,7 @@ my @result = $connection->AuthSend(
     resource => $config->{resource});
 
 if ($result[0] ne "ok") {
-    print "ERROR: Authorization failed: $result[0] - $result[1]\n";
+    error("Authorization failed: $result[0] - $result[1]\n");
     exit(0);
 }
 
@@ -129,7 +129,7 @@ while (1) {
 		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		    resource => $config->{resource});
 		if (!$xbee->tx({sh => $rx->{sh}, sl => $rx->{sl}}, "H$hash")) {
-		    print "XBee->Transmit(H...) failed!\n";
+		    error("XBee->Transmit(H...) failed!\n");
 		}
 	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
@@ -214,7 +214,8 @@ sub InMessage {
 	}
 	if ($found == 1) {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $2)) {
-		printf("XBee->Transmit(%x, %x, %s) failed!\n", $sh, $sl, $2);
+		my $tmp = sprintf("XBee->Transmit(%x, %x, %s) failed!\n", $sh, $sl, $2);
+		error($tmp);
 	    }
 	} else {
 	    debug("XBee->Send($1) Node not found!\n", 3);
@@ -227,14 +228,14 @@ sub InMessage {
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*)_([a-zA-Z0-9]*) (.*)/i) {
 	debug("XBee->Send($1_$2 => $3)\n", 3);
         if (!$xbee->tx({sh => hex($1), sl => hex($2)}, $3)) {
-            print "XBee->Transmit($1_$2) failed!\n";
+            error("XBee->Transmit($1_$2) failed!\n");
         }
     # broadcast message
     # Sende Nachricht per Broadcast
     } elsif ($body =~ m/^broadcast (.*)/i) {
 	debug("XBee->Broadcast($1)\n", 3);
 	if (!$xbee->tx($1)) {
-	    print "XBee->Transmit($1) failed!\n";
+	    error("XBee->Transmit($1) failed!\n");
 	}
     # open door 1
     # Öffnet Tür (1=Wohnungstür, 2=Haustür, 3=beide Türen)
@@ -250,7 +251,8 @@ sub InMessage {
 	}
 	if ($found == 1) {
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, "R$1")) {
-		printf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $1);
+		my $tmp = sprintf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $1);
+		error($tmp);
 	    }
 	} else {
 	    debug("XBee->Send($1) Node not found!\n", 3);
@@ -278,7 +280,17 @@ sub InMessage {
 # Parameter: messagestring, debuglevel
 # Returns: nothing
 sub debug {
+    print strftime('%D %T [xjabber] DEBUG: ', localtime);
     if ($_[1] <= $config->{debug}) { print $_[0]; }
+    return;
+}
+
+# Prints the given error message
+# Parameter: messagestring
+# Returns: nothing
+sub error {
+    print strftime('%D %T [xjabber] ERROR: ', localtime);
+    print shift;
     return;
 }
 
@@ -303,7 +315,7 @@ sub sendGTasks {
 	for (my $i = 0; $i < $sth->rows; $i++) {
 	    my $sendString = "G$i$gcal_task|$gcal_period";
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
-		print "XBee->Transmit($node) failed!\n";
+		error("XBee->Transmit($node) failed!\n");
 	    }
 	    debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 	    if ($i < $sth->rows) { $sth->fetch(); }
@@ -335,7 +347,7 @@ sub sendTS3User {
 	for (my $i = 0; $i < $sth->rows; $i++) {
 	    my $sendString = "T$i$client_nickname";
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
-		print "XBee->Transmit($node) failed!\n";
+		error("XBee->Transmit($node) failed!\n");
 	    }
 	    debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 	    if ($i < $sth->rows) { $sth->fetch(); }
@@ -369,7 +381,7 @@ sub sendWeather {
 	  undef, \$units_temperature, \$units_distance, \$units_pressure, \$units_speed);
 	my $sendString = "W3$units_temperature|$units_distance|$units_pressure|$units_speed";
 	if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
-	    print "XBee->Transmit($node) failed!\n";
+	    error("XBee->Transmit($node) failed!\n");
 	}
 	debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 
@@ -379,7 +391,7 @@ sub sendWeather {
 
 	$sendString = "W0$condition_timecode|$condition_temp|$condition_code|$conditionString";
 	if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
-	    print "XBee->Transmit($node) failed!\n";
+	    error("XBee->Transmit($node) failed!\n");
 	}
 	debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 
@@ -392,7 +404,7 @@ sub sendWeather {
 	    my $weekday = @{$config->{weekdays}}[$forecast_timecode];
 	    $sendString = "W$i$weekday|$forecast_low|$forecast_high|$forecast_code|$conditionString";
 	    if (!$xbee->tx({sh => $sh, sl => $sl}, $sendString)) {
-		print "XBee->Transmit($node) failed!\n";
+		error("XBee->Transmit($node) failed!\n");
 	    }
 	    debug("XBee()->Display($sh, $sl, $sendString)\n", 4);
 	    if ($i < 2) { $sth->fetch(); }
