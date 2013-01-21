@@ -39,22 +39,22 @@ void setup() {
   // Setup IO-Pins
   pinMode(flatdoor, OUTPUT);
   pinMode(housedoor, OUTPUT);
-  
+
   // My Relais are low-active
   digitalWrite(flatdoor, HIGH);
   digitalWrite(housedoor, HIGH);
-  
+
   // Setup the Serial- and XBee-Interface
   Serial.begin(9600);
   xbee.setSerial(Serial);
-  
+
   // Try to get some more or less real random numbers
   // more randomness means higher security for hmac hash
   randomSeed(analogRead(0));
 
   // Send a short version-string which will be ignored by the server
   uint8_t version[] = "#LDoor v0.9";
-  ZBTxRequest zbTx = ZBTxRequest(addr64, version, 10);
+  ZBTxRequest zbTx = ZBTxRequest(addr64, version, 11);
   xbee.send(zbTx);
 }
 
@@ -76,7 +76,7 @@ void loop() {
   if (xbee.getResponse().isAvailable()) { // is a XBee-Packet available?
     if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // Was it a response to a previously send packet?
       xbee.getResponse().getZBRxResponse(rx);
-      
+
       if (rx.getOption() == ZB_PACKET_ACKNOWLEDGED) { // Packet was send succesfully
         flashLed(1, 500); // Flash for 500ms
       } else {
@@ -207,4 +207,3 @@ void readRFID() {
     }
   }
 }
-
