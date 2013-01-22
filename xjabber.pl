@@ -209,15 +209,6 @@ sub InMessage {
     # Sende an Node mit dem angegebenen Namen
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*) (.*)/i) {
 	debug("XBee->Send($1 => $2)\n", 3);
-#	my ($found, $sh, $sl) = (0, 0, 0);
-#	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-#	    if (lc($v->{ni}) eq lc($1)) {
-#		$sh = $v->{sh};
-#		$sl = $v->{sl};
-#		$found = 1;
-#	    }
-#	}
-#	if ($found == 1) {
 	if (my $tmp = resolveName($1)) {
 	    my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
 
