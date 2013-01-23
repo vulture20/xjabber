@@ -59,7 +59,7 @@ debug("XBee->Discover()...\n", 1);
 $xbee->discover_network();
 
 debug("DBI->connect()...\n", 1);
-my $dbh = DBI->connect("DBI:mysql:".$config->{mysqldb}, $config->{mysqluser}, $config->{mysqlpassword});
+my $dbh = DBI->connect("DBI:mysql:".$config->{mysqldb}, $config->{mysqluser}, $config->{mysqlpassword}) || die $!;
 
 my $connection = new Net::XMPP::Client();
 $connection->SetCallBacks(message=>\&InMessage);
@@ -70,7 +70,7 @@ my $status = $connection->Connect(
 
 if (!(defined($status))) {
     error("XMPP connection failed.\n		($!)\n");
-    exit(0);
+    Stop(1);
 }
 
 my $sid = $connection->{SESSION}->{id};
@@ -82,7 +82,7 @@ my @result = $connection->AuthSend(
 
 if ($result[0] ne "ok") {
     error("Authorization failed: $result[0] - $result[1]\n");
-    exit(0);
+    Stop(2);
 }
 
 debug("XBee->PresenceSend()...\n", 2);
@@ -92,7 +92,7 @@ while (1) {
     # Process incoming Jabber-Messages
     if (!defined($connection->Process(1))) {
 	debug("XBee->Disconnected()\n", 1);
-	exit(254);
+	Stop(254);
     }
     # Interval-Timer
     if ($oldtime < time) {
@@ -159,23 +159,28 @@ while (1) {
 		}
 		my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
 		$dbh->do($query);
-		my $query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
+		$query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
 		$dbh->do($query);
 	    }
 	}
     }
 }
 
-exit(0);
+Stop(253);
 
 # Deconstructor - Clean everything up before exiting
 # Parameter: none
 # Returns: nothing
 sub Stop {
-    debug("Main->Exit()\n", 1);
+    my $retval = 0;
+
+    if ((defined $_[0]) && ($_[0] ne "INT")) { $retval = $_[0]; }
+    debug("Main->Exit($retval)\n", 1);
     $dbh->disconnect();
     $connection->Disconnect();
-    exit(0);
+    $serial_port_device->close();
+    undef $serial_port_device;
+    exit($retval);
 }
 
 # A Jabber-Message was received and should be handled
@@ -209,9 +214,7 @@ sub InMessage {
     # exit
     # Beende den Server
     } elsif ($body =~ m/^exit/i) {
-	debug("Main->Exit()\n", 1);
-	$connection->Disconnect();
-	exit(0);
+	Stop(0);
     # nodes
     # Gebe die bekannten Nodes aus
     } elsif ($body =~ m/^nodes/i) {
@@ -297,7 +300,7 @@ sub InMessage {
 	}
 	my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
 	$dbh->do($query);
-	my $query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
+	$query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
 	$dbh->do($query);
     # Kein Befehl - ignorieren bzw. debuggen
     } else {
