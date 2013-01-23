@@ -137,11 +137,30 @@ while (1) {
 		    error("Challenge has been timed out!\n");
 		}
 	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
-		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
-		debug("XBee->RFID($1)\n", 3);
+		my ($rfid_id, $rfid_description, $rfid_lastseen, $rfid_validuntil, $rfid_valid);
+		my $dateformat = $config->{dateformat};
+		my $body = sprintf("%x:%x (%s)> RFID = %s", -1, -1, "TEST", $1);
+		debug("Test->RFID($1)\n", 3);
 		$connection->MessageSend(
 		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		    resource => $config->{resource});
+
+		my $sth = querydb("SELECT id, description, DATE_FORMAT(lastseen, '$dateformat'), DATE_FORMAT(validuntil, '$dateformat'), validuntil-now()>0 as valid FROM rfid WHERE tag='" . lc($1) . "'",
+		    undef, \$rfid_id, \$rfid_description, \$rfid_lastseen, \$rfid_validuntil, \$rfid_valid);
+		if ($sth->rows == 0) {
+		    debug("Unknown RFID-Tag!\n", 3);
+		    querydb("SELECT MAX(id) FROM rfid;", undef, \$rfid_id);
+		    $rfid_id++;
+		    my $query = qq{ INSERT INTO rfid (tag, description, lastseen, validuntil) VALUES ("$1", "Autoadded Tag #$rfid_id", NOW(), 0) };
+		    $dbh->do($query);
+		} else {
+		    my $validstr = $rfid_valid ? "valid" : "INVALID";
+		    debug("RFID-Tag #$rfid_id \"$rfid_description\" found and is $validstr.\n", 3);
+		}
+		my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
+		$dbh->do($query);
+		my $query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
+		$dbh->do($query);
 	    }
 	}
     }
@@ -254,6 +273,32 @@ sub InMessage {
 		to => "$from\@$server", body => "XBee->Send($1) Node not found!",
 		resource => $resource);
 	}
+    # RFID-Test
+    } elsif ($body =~ m/^rfid (.*)/i) {
+	my ($rfid_id, $rfid_description, $rfid_lastseen, $rfid_validuntil, $rfid_valid);
+	my $dateformat = $config->{dateformat};
+	my $body = sprintf("%x:%x (%s)> RFID = %s", -1, -1, "TEST", $1);
+	debug("Test->RFID($1)\n", 3);
+	$connection->MessageSend(
+	    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
+	    resource => $config->{resource});
+
+	my $sth = querydb("SELECT id, description, DATE_FORMAT(lastseen, '$dateformat'), DATE_FORMAT(validuntil, '$dateformat'), validuntil-now()>0 as valid FROM rfid WHERE tag='" . lc($1) . "'",
+	    undef, \$rfid_id, \$rfid_description, \$rfid_lastseen, \$rfid_validuntil, \$rfid_valid);
+	if ($sth->rows == 0) {
+	    debug("Unknown RFID-Tag!\n", 3);
+	    querydb("SELECT MAX(id) FROM rfid;", undef, \$rfid_id);
+	    $rfid_id++;
+	    my $query = qq{ INSERT INTO rfid (tag, description, lastseen, validuntil) VALUES ("$1", "Autoadded Tag #$rfid_id", NOW(), 0) };
+	    $dbh->do($query);
+	} else {
+	    my $validstr = $rfid_valid ? "valid" : "INVALID";
+	    debug("RFID-Tag #$rfid_id \"$rfid_description\" found and is $validstr.\n", 3);
+	}
+	my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
+	$dbh->do($query);
+	my $query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
+	$dbh->do($query);
     # Kein Befehl - ignorieren bzw. debuggen
     } else {
 	if ($config->{debug} >= 5) {
