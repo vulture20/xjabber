@@ -45,6 +45,7 @@ $SIG{TERM} = \&Stop;
 $SIG{INT} = \&Stop;
 
 my ($oldtime, $discovertime, $challengetime) = (0, time + $config->{discover}, 0);
+my $rfidunknowntime = 0;
 
 my $serial_port_device = Device::SerialPort->new($config->{xbeedev}) || die $!;
 $serial_port_device->baudrate($config->{xbeebaud});
@@ -139,8 +140,8 @@ while (1) {
 	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		my ($rfid_id, $rfid_description, $rfid_lastseen, $rfid_validuntil, $rfid_valid);
 		my $dateformat = $config->{dateformat};
-		my $body = sprintf("%x:%x (%s)> RFID = %s", -1, -1, "TEST", $1);
-		debug("Test->RFID($1)\n", 3);
+		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
+		debug("XBee->RFID($1)\n", 3);
 		$connection->MessageSend(
 		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
 		    resource => $config->{resource});
@@ -149,13 +150,20 @@ while (1) {
 		    undef, \$rfid_id, \$rfid_description, \$rfid_lastseen, \$rfid_validuntil, \$rfid_valid);
 		if ($sth->rows == 0) {
 		    debug("Unknown RFID-Tag!\n", 3);
+		    $rfidunknowntime = time + $config->{rfiddelay};
 		    querydb("SELECT MAX(id) FROM rfid;", undef, \$rfid_id);
 		    $rfid_id++;
 		    my $query = qq{ INSERT INTO rfid (tag, description, lastseen, validuntil) VALUES ("$1", "Autoadded Tag #$rfid_id", NOW(), 0) };
 		    $dbh->do($query);
 		} else {
 		    my $validstr = $rfid_valid ? "valid" : "INVALID";
+		    if (!$rfid_valid) { $rfidunknowntime = time + $config->{rfiddelay}; }
 		    debug("RFID-Tag #$rfid_id \"$rfid_description\" found and is $validstr.\n", 3);
+		    if ($rfidunknowntime < time) {
+			# later we will here open the door
+		    } else {
+			debug("RFID-Delay isn't over. (" . int($rfidunknowntime - time) . " secs to go...)\n", 3);
+		    }
 		}
 		my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
 		$dbh->do($query);
@@ -290,13 +298,20 @@ sub InMessage {
 	    undef, \$rfid_id, \$rfid_description, \$rfid_lastseen, \$rfid_validuntil, \$rfid_valid);
 	if ($sth->rows == 0) {
 	    debug("Unknown RFID-Tag!\n", 3);
+	    $rfidunknowntime = time + $config->{rfiddelay};
 	    querydb("SELECT MAX(id) FROM rfid;", undef, \$rfid_id);
 	    $rfid_id++;
 	    my $query = qq{ INSERT INTO rfid (tag, description, lastseen, validuntil) VALUES ("$1", "Autoadded Tag #$rfid_id", NOW(), 0) };
 	    $dbh->do($query);
 	} else {
 	    my $validstr = $rfid_valid ? "valid" : "INVALID";
+	    if (!$rfid_valid) { $rfidunknowntime = time + $config->{rfiddelay}; }
 	    debug("RFID-Tag #$rfid_id \"$rfid_description\" found and is $validstr.\n", 3);
+	    if ($rfidunknowntime < time) {
+		# later we will here open the door
+	    } else {
+		debug("RFID-Delay isn't over. (" . int($rfidunknowntime - time) . " secs to go...)\n", 3);
+	    }
 	}
 	my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
 	$dbh->do($query);
