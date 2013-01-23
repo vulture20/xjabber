@@ -124,51 +124,10 @@ while (1) {
 
 	    if (($rx->{data} =~ m/C([0-9]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		debug("XBee->Challenge($1)\n", 4);
-		debug("Challengetime: $challengetime - Time: " . time . " - Diff: " . ($challengetime - time) . "\n", 5);
-		if ($challengetime > time) {
-		    my $hash = hmac_sha256_hex($1, pack("H*", $config->{hmacKey}));
-		    my $body = sprintf("%x:%x (%s)> %s", $rx->{sh}, $rx->{sl}, $ni, "H$hash");
-		    $connection->MessageSend(
-			to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
-			resource => $config->{resource});
-		    if (!$xbee->tx({sh => $rx->{sh}, sl => $rx->{sl}}, "H$hash")) {
-			error("XBee->Transmit(H...) failed!\n");
-		    }
-		} else {
-		    error("Challenge has been timed out!\n");
-		}
+		doorChallenge($1, $rx->{sh}, $rx->{sl}, $ni);
 	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
-		my ($rfid_id, $rfid_description, $rfid_lastseen, $rfid_validuntil, $rfid_valid);
-		my $dateformat = $config->{dateformat};
-		my $body = sprintf("%x:%x (%s)> RFID = %s", $rx->{sh}, $rx->{sl}, $ni, $1);
 		debug("XBee->RFID($1)\n", 3);
-		$connection->MessageSend(
-		    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
-		    resource => $config->{resource});
-
-		my $sth = querydb("SELECT id, description, DATE_FORMAT(lastseen, '$dateformat'), DATE_FORMAT(validuntil, '$dateformat'), validuntil-now()>0 as valid FROM rfid WHERE tag='" . lc($1) . "'",
-		    undef, \$rfid_id, \$rfid_description, \$rfid_lastseen, \$rfid_validuntil, \$rfid_valid);
-		if ($sth->rows == 0) {
-		    debug("Unknown RFID-Tag!\n", 3);
-		    $rfidunknowntime = time + $config->{rfiddelay};
-		    querydb("SELECT MAX(id) FROM rfid;", undef, \$rfid_id);
-		    $rfid_id++;
-		    my $query = qq{ INSERT INTO rfid (tag, description, lastseen, validuntil) VALUES ("$1", "Autoadded Tag #$rfid_id", NOW(), 0) };
-		    $dbh->do($query);
-		} else {
-		    my $validstr = $rfid_valid ? "valid" : "INVALID";
-		    if (!$rfid_valid) { $rfidunknowntime = time + $config->{rfiddelay}; }
-		    debug("RFID-Tag #$rfid_id \"$rfid_description\" found and is $validstr.\n", 3);
-		    if ($rfidunknowntime < time) {
-			# later we will here open the door
-		    } else {
-			debug("RFID-Delay isn't over. (" . int($rfidunknowntime - time) . " secs to go...)\n", 3);
-		    }
-		}
-		my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
-		$dbh->do($query);
-		$query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
-		$dbh->do($query);
+		doorRFID($1, $rx->{sh}, $rx->{sl}, $ni);
 	    }
 	}
     }
@@ -226,15 +185,7 @@ sub InMessage {
     # nodes
     # Gebe die bekannten Nodes aus
     } elsif ($body =~ m/^nodes/i) {
-	$connection->MessageSend(
-	    to => "$from\@$server", body => "Known Nodes:",
-	    resource => $resource);
-	while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
-	    my $tmp = sprintf("%x_%x (%s): %x", $v->{sh}, $v->{sl}, $v->{ni}, $v->{na});
-	    $connection->MessageSend(
-		to => "$from\@$server", body => $tmp,
-		resource => $resource);
-	}
+	jabberNodes($from, $server, $resource);
     # send testnode message
     # Sende an Node mit dem angegebenen Namen
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*) (.*)/i) {
@@ -286,37 +237,8 @@ sub InMessage {
 	}
     # RFID-Test
     } elsif ($body =~ m/^rfid (.*)/i) {
-	my ($rfid_id, $rfid_description, $rfid_lastseen, $rfid_validuntil, $rfid_valid);
-	my $dateformat = $config->{dateformat};
-	my $body = sprintf("%x:%x (%s)> RFID = %s", -1, -1, "TEST", $1);
 	debug("Test->RFID($1)\n", 3);
-	$connection->MessageSend(
-	    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
-	    resource => $config->{resource});
-
-	my $sth = querydb("SELECT id, description, DATE_FORMAT(lastseen, '$dateformat'), DATE_FORMAT(validuntil, '$dateformat'), validuntil-now()>0 as valid FROM rfid WHERE tag='" . lc($1) . "'",
-	    undef, \$rfid_id, \$rfid_description, \$rfid_lastseen, \$rfid_validuntil, \$rfid_valid);
-	if ($sth->rows == 0) {
-	    debug("Unknown RFID-Tag!\n", 3);
-	    $rfidunknowntime = time + $config->{rfiddelay};
-	    querydb("SELECT MAX(id) FROM rfid;", undef, \$rfid_id);
-	    $rfid_id++;
-	    my $query = qq{ INSERT INTO rfid (tag, description, lastseen, validuntil) VALUES ("$1", "Autoadded Tag #$rfid_id", NOW(), 0) };
-	    $dbh->do($query);
-	} else {
-	    my $validstr = $rfid_valid ? "valid" : "INVALID";
-	    if (!$rfid_valid) { $rfidunknowntime = time + $config->{rfiddelay}; }
-	    debug("RFID-Tag #$rfid_id \"$rfid_description\" found and is $validstr.\n", 3);
-	    if ($rfidunknowntime < time) {
-		# later we will here open the door
-	    } else {
-		debug("RFID-Delay isn't over. (" . int($rfidunknowntime - time) . " secs to go...)\n", 3);
-	    }
-	}
-	my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
-	$dbh->do($query);
-	$query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
-	$dbh->do($query);
+	doorRFID($1, -1, -1, "TEST");
     # Kein Befehl - ignorieren bzw. debuggen
     } else {
 	if ($config->{debug} >= 5) {
@@ -518,4 +440,83 @@ sub getCondString {
     my $sth = querydb("SELECT conditionString FROM weather_condString WHERE id=$id;", undef, \$condString);
     if ($sth->rows == 0) { return undef; }
     return $condString;
+}
+
+# Handles the Challenge->Hash-Response
+# Parameter: challenge, sh, sl, ni
+# Returns: nothing
+sub doorChallenge {
+    my ($challenge, $sh, $sl, $ni) = @_;
+
+    debug("Challengetime: $challengetime - Time: " . time . " - Diff: " . int($challengetime - time) . "\n", 5);
+    if ($challengetime > time) {
+	my $hash = hmac_sha256_hex($challenge, pack("H*", $config->{hmacKey}));
+	my $body = sprintf("%x:%x (%s)> %s", $sh, $sl, $ni, "H$hash");
+	$connection->MessageSend(
+	    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
+	    resource => $config->{resource});
+	if (!$xbee->tx({sh => $sh, sl => $sl}, "H$hash")) {
+	    error("XBee->Transmit(H...) failed!\n");
+	}
+    } else {
+	error("Challenge has been timed out!\n");
+    }
+}
+
+# Validates the rfid-tag and opens the door
+# Parameter: tagid, sh, sl, ni
+# Returns: nothing
+sub doorRFID {
+    my ($tagid, $sh, $sl, $ni) = @_;
+    my ($rfid_id, $rfid_description, $rfid_lastseen, $rfid_validuntil, $rfid_valid);
+    my $dateformat = $config->{dateformat};
+
+    my $body = sprintf("%x:%x (%s)> RFID = %s", $sh, $sl, $ni, $tagid);
+    $connection->MessageSend(
+	to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
+	resource => $config->{resource});
+
+    my $sth = querydb("SELECT id, description, DATE_FORMAT(lastseen, '$dateformat'), DATE_FORMAT(validuntil, '$dateformat'), validuntil-NOW()>0 as valid FROM rfid WHERE tag='" . lc($tagid) . "'",
+	undef, \$rfid_id, \$rfid_description, \$rfid_lastseen, \$rfid_validuntil, \$rfid_valid);
+    if ($sth->rows == 0) {
+	debug("Unknown RFID-Tag!\n", 3);
+	$rfidunknowntime = time + $config->{rfiddelay};
+	querydb("SELECT MAX(id) FROM rfid;", undef, \$rfid_id);
+	$rfid_id++;
+	my $query = qq{ INSERT INTO rfid (tag, description, lastseen, validuntil) VALUES ("$tagid", "Autoadded Tag #$rfid_id", NOW(), 0) };
+	$dbh->do($query);
+    } else {
+	my $validstr = "valid";
+	if (!$rfid_valid) {
+	    $validstr = "INVALID";
+	    $rfidunknowntime = time + $config->{rfiddelay};
+	}
+	debug("RFID-Tag #$rfid_id \"$rfid_description\" found and is $validstr.\n", 3);
+	if ($rfidunknowntime < time) {
+	    # later we will here open the door
+	} else {
+	    debug("RFID-Delay isn't over. (" . int($rfidunknowntime - time) . " secs to go...)\n", 3);
+	}
+    }
+    my $query = qq{ UPDATE rfid SET lastseen=NOW() WHERE id=$rfid_id LIMIT 1 };
+    $dbh->do($query);
+    $query = qq{ INSERT INTO rfid_log (tag_id) VALUES ($rfid_id) };
+    $dbh->do($query);
+}
+
+# Sends a list of all known XBee-Nodes to the jabber-client
+# Parameter: from, server, resource
+# Returns: nothing
+sub jabberNodes {
+    my ($from, $server, $resource) = @_;
+
+    $connection->MessageSend(
+	to => "$from\@$server", body => "Known Nodes:",
+	resource => $resource);
+    while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
+	my $tmp = sprintf("%x_%x (%s): %x", $v->{sh}, $v->{sl}, $v->{ni}, $v->{na});
+	$connection->MessageSend(
+	    to => "$from\@$server", body => $tmp,
+	    resource => $resource);
+    }
 }
