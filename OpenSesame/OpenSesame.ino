@@ -72,7 +72,7 @@ void loop() {
     ZBTxRequest zbTx = ZBTxRequest(addr64, payload, 6); // Static size of 6 byte
     xbee.send(zbTx); // Send it
   }
-  xbee.readPacket(); // Try to read a XBee-Packet
+  xbee.readPacket(100); // Try to read a XBee-Packet for 100ms
   if (xbee.getResponse().isAvailable()) { // Is a XBee-Packet available?
     if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // Was it a response to a previously sent packet?
       xbee.getResponse().getZBRxResponse(rx);
