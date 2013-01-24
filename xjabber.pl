@@ -190,19 +190,7 @@ sub InMessage {
     # Sende an Node mit dem angegebenen Namen
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*) (.*)/i) {
 	debug("XBee->Send($1 => $2)\n", 3);
-	if (my $tmp = resolveName($1)) {
-	    my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
-
-	    if (!$xbee->tx({sh => $sh, sl => $sl}, $2)) {
-		my $tmp = sprintf("XBee->Transmit(%x, %x, %s) failed!\n", $sh, $sl, $2);
-		error($tmp);
-	    }
-	} else {
-	    debug("XBee->Send($1) Node not found!\n", 3);
-	    $connection->MessageSend(
-		to => "$from\@$server", body => "XBee->Send($1) Node not found!",
-		resource => $resource);
-	}
+	xbeeSendName($1, $2, $from, $server, $resource);
     # send 13a200_406fffff message
     # Sende an 64bit-Adresse
     } elsif ($body =~ m/^send ([a-zA-Z0-9]*)_([a-zA-Z0-9]*) (.*)/i) {
@@ -221,20 +209,7 @@ sub InMessage {
     # Öffnet Tür (1=Wohnungstür, 2=Haustür, 3=beide Türen)
     } elsif ($body =~ m/^open door ([1-3])/i) {
 	debug("XBee->Open_Door($1)\n", 3);
-	if (my $tmp = resolveName($config->{xbeedoor})) {
-	    my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
-
-	    $challengetime = time + $config->{challengeinterval};
-	    if (!$xbee->tx({sh => $sh, sl => $sl}, "R$1")) {
-		my $tmp = sprintf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $1);
-		error($tmp);
-	    }
-	} else {
-	    debug("XBee->Send($1) Node not found!\n", 3);
-	    $connection->MessageSend(
-		to => "$from\@$server", body => "XBee->Send($1) Node not found!",
-		resource => $resource);
-	}
+	xbeeOpenDoor($1, $from, $server, $resource);
     # RFID-Test
     } elsif ($body =~ m/^rfid (.*)/i) {
 	debug("Test->RFID($1)\n", 3);
@@ -517,6 +492,49 @@ sub jabberNodes {
 	my $tmp = sprintf("%x_%x (%s): %x", $v->{sh}, $v->{sl}, $v->{ni}, $v->{na});
 	$connection->MessageSend(
 	    to => "$from\@$server", body => $tmp,
+	    resource => $resource);
+    }
+}
+
+# Sends a message to a XBee-Node identified by its name
+# Parameter: name, message, from, server, resource
+# Returns: nothing
+sub xbeeSendName {
+    my ($name, $message, $from, $server, $resource) = @_;
+
+    if (my $tmp = resolveName($name)) {
+	my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
+
+	if (!$xbee->tx({sh => $sh, sl => $sl}, $message)) {
+	    my $tmp = sprintf("XBee->Transmit(%x, %x, %s) failed!\n", $sh, $sl, $message);
+	    error($tmp);
+	}
+    } else {
+	debug("XBee->Send($name) Node not found!\n", 3);
+	$connection->MessageSend(
+	    to => "$from\@$server", body => "XBee->Send($name) Node not found!",
+	    resource => $resource);
+    }
+}
+
+# Sends the request to open a door to the door-node
+# Parameter: door, from, server, resource
+# Returns: nothing
+sub xbeeOpenDoor {
+    my ($door, $from, $server, $resource) = @_;
+
+    if (my $tmp = resolveName($config->{xbeedoor})) {
+	my $sh = $tmp->{sh}; my $sl = $tmp->{sl};
+
+	$challengetime = time + $config->{challengeinterval};
+	if (!$xbee->tx({sh => $sh, sl => $sl}, "R$door")) {
+	    my $tmp = sprintf("XBee->Transmit(%x, %x, R%s) failed!\n", $sh, $sl, $door);
+	    error($tmp);
+	}
+    } else {
+	debug("XBee->Send($config->{xbeedoor}) Node not found!\n", 3);
+	$connection->MessageSend(
+	    to => "$from\@$server", body => "XBee->Send($config->{xbeedoor}) Node not found!",
 	    resource => $resource);
     }
 }
