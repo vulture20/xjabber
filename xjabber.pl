@@ -62,7 +62,6 @@ $xbee->discover_network();
 debug("DBI->connect()...\n", 1);
 my $dbh = DBI->connect("DBI:mysql:".$config->{mysqldb}, $config->{mysqluser}, $config->{mysqlpassword}) || die $!;
 
-#my $connection = new Net::XMPP::Client();
 my $connection = new Net::Jabber::Client();
 $connection->SetCallBacks(message=>\&InMessage);
 my $status = $connection->Connect(
@@ -87,9 +86,11 @@ if ($result[0] ne "ok") {
     Stop(2);
 }
 
-$connection->MUCJoin(room => "bhp",
-    server => "conference.$config->{componentname}",
-    nick => $config->{username});
+my ($mucRoom, $mucServer) = split(/\@/, $config->{conferenceroom});
+$connection->MUCJoin(room => $mucRoom,
+    server => $mucServer,
+    nick => $config->{username},
+    password => $config->{conferencepassword});
 
 debug("XBee->PresenceSend()...\n", 2);
 $connection->PresenceSend();
@@ -499,7 +500,7 @@ sub jabberGroupMessage {
     my ($body) = @_;
 
     my $groupmsg = new Net::XMPP::Message;
-    $groupmsg->SetMessage(to => "$config->{sendTo}\@conference.$config->{componentname}",
+    $groupmsg->SetMessage(to => $config->{conferenceroom},
 	body => $body,
 	type => "groupchat");
     $connection->Send($groupmsg);
@@ -567,4 +568,10 @@ sub xbeeOpenDoor {
 #	    to => "$from\@$server", body => "XBee->Send($config->{xbeedoor}) Node not found!",
 #	    resource => $resource);
     }
+}
+
+# Checks if a given user belongs to the admingroup
+# Parameter: username
+# Returns: admin (bool)
+sub isAdmin {
 }
