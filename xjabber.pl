@@ -177,6 +177,12 @@ sub InMessage {
     # wird anscheinend oft als Benachrichtigung, dass das Gegenüber schreibt verwendet
     if ($body eq "") { return; }
 
+    if (($type ne "groupchat") ||
+        ($from ne $mucRoom) ||
+        (!isAdmin($resource))) {
+	return;
+    }
+
     # discover
     # Veranlasse ein Discover des XBee-Moduls
     if ($body =~ m/^discover/i) {
@@ -574,4 +580,11 @@ sub xbeeOpenDoor {
 # Parameter: username
 # Returns: admin (bool)
 sub isAdmin {
+    my ($username) = @_;
+
+    foreach my $admin (@{$config->{admins}}) {
+	if (lc($admin) eq lc($username)) { return 1; }
+    }
+
+    return 0;
 }
