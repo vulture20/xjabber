@@ -135,6 +135,13 @@ while (1) {
 	    } elsif (($rx->{data} =~ m/R([0-9a-zA-Z]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		debug("XBee->RFID($1)\n", 3);
 		doorRFID($1, $rx->{sh}, $rx->{sl}, $ni);
+	    } elsif (($rx->{data} =~ m/L(.*)/i) && (lc($ni) eq $config->{xbeedisplay})) {
+		debug("XBee->SD_List($1)", 4);
+		foreach (split(/*/, $1) {
+		    my ($filename, $fileext, $filesize) = split(/\|/, $_);
+
+		    jabberGroupMessage("$filename.$fileexts - $filesize bytes");
+		}
 	    }
 	}
     }
@@ -230,7 +237,10 @@ sub InMessage {
 	doorRFID($1, -1, -1, "TEST");
     # Kein Befehl - ignorieren bzw. debuggen
     } else {
-	if ($config->{debug} >= 5) {
+	if (($config->{debug} >= 5)) {
+#	if (($resource ne $config->{resource}) &&
+#	    ($from ne $mucRoom) &&
+#	    ($config->{debug} >= 5)) {
 	    print "===\n";
 	    print "Message ($type)\n";
 	    print "  From: $from ($resource)\n";
