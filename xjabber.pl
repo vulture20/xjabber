@@ -137,11 +137,14 @@ while (1) {
 		doorRFID($1, $rx->{sh}, $rx->{sl}, $ni);
 	    } elsif (($rx->{data} =~ m/L(.*)/i) && (lc($ni) eq $config->{xbeedisplay})) {
 		debug("XBee->SD_List($1)", 4);
-		foreach (split(/*/, $1) {
-		    my ($filename, $fileext, $filesize) = split(/\|/, $_);
+		foreach (split(/\*/, $1)) {
+		    my ($sdfilename, $sdfileext, $sdfilesize) = split(/\|/, $_);
 
-		    jabberGroupMessage("$filename.$fileexts - $filesize bytes");
+		    jabberGroupMessage("$sdfilename.$sdfileext - $sdfilesize bytes");
 		}
+	    } elsif (($rx->{data} =~ m/T[0-9](.*)/i) && (lc($ni) eq $config->{xbeedisplay})) {
+		debug("XBee->Temperature($1)", 4);
+		jabberGroupMessage("Display-Temperature: $1°C");
 	    }
 	}
     }
@@ -235,6 +238,11 @@ sub InMessage {
     } elsif ($body =~ m/^rfid (.*)/i) {
 	debug("Test->RFID($1)\n", 3);
 	doorRFID($1, -1, -1, "TEST");
+    # temperature display 0
+    # Temperatur abfragen (display = Node; 0 = Subadresse)
+    } elsif ($body =~ m/^temperature (.*) ([0-9])$/i) {
+	debug("XBee->Temperature($1, $2)\n", 3);
+	xbeeSendName($1, "C$2", $from, $server, $resource);
     # Kein Befehl - ignorieren bzw. debuggen
     } else {
 	if (($config->{debug} >= 5)) {
