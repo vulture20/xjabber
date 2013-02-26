@@ -139,9 +139,22 @@ while (1) {
 
 		    jabberGroupMessage("$sdfilename.$sdfileext - $sdfilesize bytes");
 		}
-	    } elsif (($rx->{data} =~ m/T[0-9](.*)/i) && (lc($ni) eq $config->{xbeedisplay})) {
-		debug("XBee->Temperature($1)", 4);
-		jabberGroupMessage("Display-Temperature: $1°C");
+#	    } elsif (($rx->{data} =~ m/T[0-9](.*)/i) && (lc($ni) eq $config->{xbeedisplay})) {
+	    } elsif ($rx->{data} =~ m/T([0-9])([-+]?[0-9]*\.?[0-9]+)/i) {
+		my $tablename = "";
+
+		for (my $i = 0; $i < scalar(@{$config->{nodemap}}); $i += 2) {
+		    if (lc($ni) eq @{$config->{nodemap}}[$i]) { $tablename = @{$config->{nodemap}}[$i+1]; }
+		}
+
+		if ($tablename ne "") {
+		    debug("XBee->Temperature($tablename, $2)", 4);
+		    my $query = qq{ INSERT INTO room_$tablename (tempsensor, temperature) VALUES ("$1", "$2") };
+		    $dbh->do($query);
+		    jabberGroupMessage("$tablename-Temperature: $2°C");
+		} else {
+		    error("Unknown Temperaturesensor! ($ni)\n");
+		}
 	    }
 	}
     }
@@ -234,9 +247,9 @@ sub InMessage {
 	doorRFID($1, -1, -1, "TEST");
     # temperature display 0
     # Temperatur abfragen (display = Node; 0 = Subadresse)
-    } elsif ($body =~ m/^temperature (.*) ([0-9])$/i) {
-	debug("XBee->Temperature($1, $2)\n", 3);
-	xbeeSendName($1, "C$2", $from, $server, $resource);
+#    } elsif ($body =~ m/^temperature (.*) ([0-9])$/i) {
+#	debug("XBee->Temperature($1, $2)\n", 3);
+#	xbeeSendName($1, "C$2", $from, $server, $resource);
     # Kein Befehl - ignorieren bzw. debuggen
     } else {
 	if (($config->{debug} >= 5)) {
