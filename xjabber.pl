@@ -125,9 +125,6 @@ while (1) {
 	    debug("XBee->MessageSend(".$config->{sendTo}.")->$body\n", 4);
 	    debug("XBee->MessageSend(".$config->{sendTo}.")->Hash(" . hmac_sha256_hex($body, $config->{hmacKey}) . ")\n", 4);
 	    jabberGroupMessage($body);
-#	    $connection->MessageSend(
-#		to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
-#		resource => $config->{resource});
 
 	    if (($rx->{data} =~ m/C([0-9]*)/i) && (lc($ni) eq $config->{xbeedoor})) {
 		debug("XBee->Challenge($1)\n", 4);
@@ -198,9 +195,6 @@ sub InMessage {
     if ($body =~ m/^discover/i) {
 	debug("XBee->Discover()...\n", 3);
 	jabberGroupMessage("Discovering...");
-#	$connection->MessageSend(
-#	    to => "$from\@$server", body => "Discovering...",
-#    	    resource => $resource);
 	$xbee->discover_network();
     # exit
     # Beende den Server
@@ -464,9 +458,6 @@ sub doorChallenge {
 	my $hash = hmac_sha256_hex($challenge, pack("H*", $config->{hmacKey}));
 	my $body = sprintf("%x:%x (%s)> %s", $sh, $sl, $ni, "H$hash");
 	jabberGroupMessage($body);
-#	$connection->MessageSend(
-#	    to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
-#	    resource => $config->{resource});
 	if (!$xbee->tx({sh => $sh, sl => $sl}, "H$hash")) {
 	    error("XBee->Transmit(H...) failed!\n");
 	}
@@ -485,9 +476,6 @@ sub doorRFID {
 
     my $body = sprintf("%x:%x (%s)> RFID = %s", $sh, $sl, $ni, $tagid);
     jabberGroupMessage($body);
-#    $connection->MessageSend(
-#	to => $config->{sendTo}."\@".$config->{componentname}, body => $body,
-#	resource => $config->{resource});
 
     my $sth = querydb("SELECT id, description, DATE_FORMAT(lastseen, '$dateformat'), DATE_FORMAT(validuntil, '$dateformat'), validuntil-NOW()>0 as valid FROM rfid WHERE tag='" . lc($tagid) . "'",
 	undef, \$rfid_id, \$rfid_description, \$rfid_lastseen, \$rfid_validuntil, \$rfid_valid);
@@ -536,16 +524,10 @@ sub jabberGroupMessage {
 sub jabberNodes {
     my ($from, $server, $resource) = @_;
 
-#    $connection->MessageSend(
-#	to => "$from\@$server", body => "Known Nodes:",
-#	resource => $resource);
     jabberGroupMessage("Known Nodes:");
     while (my ($k, $v) = each %{$xbee->{known_nodes}}) {
 	my $tmp = sprintf("%x_%x (%s): %x", $v->{sh}, $v->{sl}, $v->{ni}, $v->{na});
 	jabberGroupMessage($tmp);
-#	$connection->MessageSend(
-#	    to => "$from\@$server", body => $tmp,
-#	    resource => $resource);
     }
 }
 
@@ -565,9 +547,6 @@ sub xbeeSendName {
     } else {
 	debug("XBee->Send($name) Node not found!\n", 3);
 	jabberGroupMessage("XBee->Send($name) Node not found!");
-#	$connection->MessageSend(
-#	    to => "$from\@$server", body => "XBee->Send($name) Node not found!",
-#	    resource => $resource);
     }
 }
 
@@ -588,9 +567,6 @@ sub xbeeOpenDoor {
     } else {
 	debug("XBee->Send($config->{xbeedoor}) Node not found!\n", 3);
 	jabberGroupMessage("XBee->Send($config->{xbeedoor}) Node not found!");
-#	$connection->MessageSend(
-#	    to => "$from\@$server", body => "XBee->Send($config->{xbeedoor}) Node not found!",
-#	    resource => $resource);
     }
 }
 
