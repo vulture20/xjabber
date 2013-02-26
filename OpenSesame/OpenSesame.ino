@@ -1,6 +1,7 @@
 #include "sha256.h"
 #include "XBee.h"
 #include "RFID_IM283.h"
+#include <Wire.h>
 
 // Pin-Definitions
 int flatdoor     = 2;
@@ -10,11 +11,16 @@ int rfid_found   = 10;
 int rfid_sck     = 11;
 int rfid_sdt     = 12;
 
+const int TEMP_ADDR = 0x48;	      // I2C-Address of the TMP102-Sensor
+const int TEMP_READINTERVAL = 900000; // Read and send temperature in interval
+				      // of x ms
+
 unsigned long lastsecret;
 uint8_t* expectedHmac;
 uint8_t payload[65];
 char hmacString[65], responseString[65], rfidTag[5] = {0, 0, 0, 0, 0};
 int door = 0;
+unsigned long last_tempread;
 
 // Enter HMAC-Key here and keep it secure!
 uint8_t hmacKey[] = {
@@ -56,6 +62,9 @@ void setup() {
   uint8_t version[] = "#LDoor v0.9";
   ZBTxRequest zbTx = ZBTxRequest(addr64, version, 11);
   xbee.send(zbTx);
+
+  // Initialize the TwoWire-Libary
+  Wire.begin();
 }
 
 void loop() {
@@ -142,6 +151,8 @@ void loop() {
       }
     }
   }
+
+  sendTemperature();
 }
 
 // Converts a hmac hash byte-array to a string (array of chars)
@@ -182,28 +193,42 @@ void sendPacket(uint8_t dataPayload[], byte sizeofPayload) {
   xbee.send(zbTx);
 }
 
-// RFID-Tag has been detected
-boolean foundRFID() {
-  return (digitalRead(rfid_found) == HIGH);
+char* ps(const char *fmt, ...) {
+  char tmp[160];
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(tmp, 160, fmt, args);
+  va_end(args);
+  return tmp;
 }
 
-// Reset the RFID-Reader
-void restartRFID() {
-  digitalWrite(rfid_restart, HIGH);
-  delay(5);
-  digitalWrite(rfid_restart, LOW);
+void clearPayload() {
+  for (int i = 0; i < 99; i++) { payload[i] = 0;  }
 }
 
-// Reads an RFID-Tag and stores the id in rfidTag
-void readRFID() {
-  for (int j=0; j<5; j++) {
-    for (int i=0; i<8; i++) {
-      byte dataBit = digitalRead(rfid_sdt); // First bit is available before first CLK-toggle!
-      rfidTag[j] = rfidTag[j] << 1;
-      rfidTag[j] += dataBit;
-      digitalWrite(rfid_sck, HIGH);
-      delay(10); // Maybe we can read faster - needs to be tested
-      digitalWrite(rfid_sck, LOW);
-    }
+void string2payload(String str, int index, int length) {
+  for (int i = index; i < index+length; i++) {
+    payload[i] = str[i-index];
+  }
+}
+
+float sendTemperature() {
+  float temperature;
+
+  if (millis()-last_tempread > TEMP_READINTERVAL) {
+    Wire.requestFrom(TEMP_ADDR, 2);
+    Wire.endTransmission();
+
+    byte highbyte = Wire.read();
+    byte lowbyte = Wire.read();
+    int temp = ((highbyte << 8) | lowbyte) >> 4;
+    temperature = temp * 0.0625;
+
+    clearPayload();
+    String tmp = ps("T0%-1.2f", temperature);
+    string2payload(tmp, 0, tmp.length());
+    sendPacket(payload, tmp.length());
+
+    last_tempread = millis();
   }
 }
